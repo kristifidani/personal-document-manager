@@ -13,7 +13,7 @@ apps/frontend      React + Vite frontend
 apps/backend      Node + Fastify — CRUD, auth, search, synchronous Ask/RAG endpoint
 apps/worker   Python — async document pipeline (OCR/text extraction,
               classification & extraction via LLM, embeddings)
-common  TypeScript types shared between web and api
+packages/shared  TypeScript types shared between web and api
 ```
 
 Node and Python are meant to coordinate through Postgres only (a `jobs`
