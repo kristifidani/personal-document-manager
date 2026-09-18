@@ -9,11 +9,11 @@ collection in natural language, and track important deadlines.
 Modular monolith, split by workload rather than by microservice:
 
 ```text
-apps/web      React + Vite frontend
-apps/api      Node + Fastify — CRUD, auth, search, synchronous Ask/RAG endpoint
+apps/frontend      React + Vite frontend
+apps/backend      Node + Fastify — CRUD, auth, search, synchronous Ask/RAG endpoint
 apps/worker   Python — async document pipeline (OCR/text extraction,
-              classification & extraction via Claude API, embeddings)
-packages/shared  TypeScript types shared between web and api
+              classification & extraction via LLM, embeddings)
+common  TypeScript types shared between web and api
 ```
 
 Node and Python are meant to coordinate through Postgres only (a `jobs`
