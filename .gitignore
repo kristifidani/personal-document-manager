@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
