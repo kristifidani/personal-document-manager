@@ -58,6 +58,32 @@ built as tickets land, not a description of current code.
   logic across `apps/*` (see the architecture decisions above).
 - Keep dependencies minimal — prefer the standard library where reasonable.
 
+## Backend (`apps/backend`)
+
+Fastify 5 + TypeScript (CommonJS), scaffolded with `npm init fastify -- --lang=ts`.
+`src/routes/` is auto-loaded by `@fastify/autoload` — add a file there, don't
+register it by hand in `app.ts`. There is no `src/plugins/` yet: autoload throws
+on a missing directory and `tsc` doesn't emit empty ones, so add the folder and
+its autoload registration together with the first plugin. Every route declares a
+JSON `response` schema. Run all commands from `apps/backend` (no npm workspaces yet).
+
+- `npm run check` — lint + format check + typecheck + tests; must pass before a PR
+- `npm test` — `node:test` via ts-node (run one file:
+  `node --test -r ts-node/register test/routes/health.test.ts`)
+- `npm run dev` — runs `src/app.ts` through ts-node with watch on port 3000;
+  `npm run lint:fix` / `npm run format`
+- `npm start` — compiles to `dist/` and runs the compiled app
+- Tests live in `test/**/*.test.ts` and build the app via `test/helper.ts`.
+
+## Dependency notes (verified against the npm registry, recheck before changing)
+
+- TypeScript is `^6.0.3`, not 7.x (npm `latest`): `typescript-eslint` declares
+  peer `typescript >=4.8.4 <6.1.0`. Re-evaluate when it supports 7.x.
+- TS 6 needs explicit `rootDir` and `types: ["node"]` in `tsconfig.json`.
+- `@types/node` follows the runtime major (Node 24, see `engines`).
+- ESLint runs with type-aware rules; `require-await` is off on purpose
+  (Fastify plugins/handlers are `async` by convention).
+
 ## Repo etiquette
 
 - Branches: `feature/<short-name>`, `fix/<short-name>`, `chore/<short-name>`.

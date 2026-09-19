@@ -22,6 +22,18 @@ table as a lightweight queue) — no separate broker. See
 
 ## Status
 
-Empty scaffold — folder structure only, no code yet. Built incrementally,
-one small ticket/PR at a time; see [CLAUDE.md](CLAUDE.md) for working
-conventions.
+Backend scaffold only (`apps/backend`: Fastify + TypeScript with a `/health`
+endpoint, tests, lint and CI). Frontend and worker are not started. Built
+incrementally, one small ticket/PR at a time; see [CLAUDE.md](CLAUDE.md) for
+working conventions.
+
+## Running the backend
+
+Requires Node 24+.
+
+```bash
+cd apps/backend
+npm install
+npm run dev     # http://localhost:3000/health
+npm run check   # lint + format check + typecheck + tests
+```
