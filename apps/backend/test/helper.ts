@@ -8,7 +8,7 @@ export async function build(t: TestContext) {
   await fastify.register(app)
   await fastify.ready()
 
-  t.after(() => void fastify.close())
+  t.after(() => fastify.close())
 
   return fastify
 }

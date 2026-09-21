@@ -3,9 +3,10 @@
 Fastify 5 + TypeScript (CommonJS). Run all commands from this directory (no npm workspaces yet). `npm run check` must pass before a PR.
 
 - `src/routes/` is auto-loaded by `@fastify/autoload` — add a file there, don't register it in `app.ts`. Every route declares a JSON `response` schema.
-- No `src/plugins/` yet: autoload throws on a missing directory and `tsc` doesn't emit empty ones. Add the folder and its autoload registration together with the first plugin.
-- `knip.json` declares `src/routes/**` as entry points because autoload hides them from static analysis.
-- Config lives in `.env` (copy `.env.example`), loaded by `fastify-cli`. Don't set `-p`/`-l` flags in scripts — CLI flags override env vars.
+- `src/plugins/` is auto-loaded the same way, registered before `routes/`. Wrap plugins with `fastify-plugin` (`fp`) and give them a `name`; use `dependencies: ['other-name']` to order them, since autoload doesn't guarantee load order otherwise. `env` (validates/exposes `fastify.config`) and `postgres` (`fastify.pg`, depends on `env`) are the first two.
+- `knip.json` declares `src/routes/**` and `src/plugins/**` as entry points because autoload hides them from static analysis.
+- Config lives in `.env` (copy `.env.example`), loaded two ways: `fastify-cli` reads it for `dev`/`start` (via `process.loadEnvFile()`), and the `env` plugin reads it independently (`dotenv: true`) so tests get the same config without going through fastify-cli. `process.env` wins over `.env` in both.
+- `DATABASE_URL` must point at a running Postgres — start one with `docker compose up -d` in `infra/db/` (see [infra/db](../../infra/db)).
 - Run one test: `node --test -r ts-node/register test/routes/health.test.ts`
 
 ## Dependency notes (verified against the npm registry, recheck before changing)
