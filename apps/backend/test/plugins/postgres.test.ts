@@ -11,7 +11,7 @@ test('database connection accepts queries', async (t) => {
   await fastify.register(postgres)
   await fastify.ready()
 
-  t.after(() => void fastify.close())
+  t.after(() => fastify.close())
 
   const result = await fastify.pg.query<{ ok: number }>('SELECT 1 AS ok')
 

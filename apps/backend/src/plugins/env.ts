@@ -13,7 +13,7 @@ const schema = {
   type: 'object',
   required: ['DATABASE_URL'],
   properties: {
-    DATABASE_URL: { type: 'string' }
+    DATABASE_URL: { type: 'string', minLength: 1 }
   }
 }
 
