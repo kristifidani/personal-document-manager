@@ -4,11 +4,12 @@ The API of the [Personal Document Manager](../../README.md): Fastify 5 + TypeScr
 
 ## Getting started
 
-Requires Node 24+. Run everything from this directory.
+Requires Node 24+ and Docker. Run everything from this directory.
 
 ```bash
 npm install
 cp .env.example .env
+docker compose -f ../../infra/db/docker-compose.yml up -d
 npm run dev
 ```
 
@@ -26,7 +27,8 @@ npm run dev
 ## Project structure
 
 ```text
-src/app.ts        App entry point; auto-loads everything in routes/
+src/app.ts        App entry point; auto-loads plugins/ then routes/
+src/plugins/      Cross-cutting setup (env validation, Postgres pool), registered automatically (@fastify/autoload)
 src/routes/       One file per route group, registered automatically (@fastify/autoload)
 test/             node:test suites; test/helper.ts builds the app without opening a port
 ```
@@ -36,6 +38,6 @@ test/             node:test suites; test/helper.ts builds the app without openin
 [backend-ci.yml](../../.github/workflows/backend-ci.yml) runs four parallel jobs on every PR and on merge to `main`:
 
 - **lint**: ESLint, Prettier check and typecheck
-- **test**: the test suite
+- **test**: the test suite, against a Postgres service container
 - **build**: TypeScript compilation
 - **dependencies**: `npm audit` (high severity and above) and knip for unused dependencies and files
