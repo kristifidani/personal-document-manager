@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Personal Document Manager backend API (Fastify)",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "fastify start -w -P -r ts-node/register src/app.ts",
+    "build": "tsc",
+    "start": "npm run build && fastify start dist/app.js",
+    "test": "node --test -r ts-node/register \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p test/tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
+  },
+  "dependencies": {
+    "@fastify/autoload": "^6.5.0",
+    "fastify": "^5.12.5",
+    "fastify-cli": "^8.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.6",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "knip": "^6.37.0",
+    "prettier": "^3.9.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0"
+  }
+}
