@@ -15,3 +15,5 @@ Fastify 5 + TypeScript (CommonJS). Run all commands from this directory (no npm 
 - `@types/node` follows the runtime major (Node 24, see `engines`).
 - ESLint runs with type-aware rules; `require-await` is off on purpose
   (Fastify plugins/handlers are `async` by convention).
+
+Refer to [Backend README](./README.md) for more information.

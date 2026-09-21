@@ -1,6 +1,6 @@
 # Personal Document Manager — notes for Claude Code
 
-Single-user personal document manager. Full scope lives in the product brief; planned architecture is summarized in [README.md](README.md).
+Single-user personal document manager. Product scope, architecture and the reasoning behind each decision live in [README.md](README.md).
 
 ## Working process (important — this is how this repo is built)
 
@@ -12,7 +12,7 @@ Single-user personal document manager. Full scope lives in the product brief; pl
 ## Decision-making rules
 
 - Don't invent library behavior, API shapes, or config values — check the actual file in the repo instead of assuming. If something genuinely doesn't exist yet (a file, a command, a dependency), say so rather than describing it as if it's already there.
-- If a request conflicts with a decision below, say so explicitly instead of quietly working around it or picking a side.
+- If a request conflicts with an established repository decision, including the architecture in [README.md](README.md), say so explicitly instead of quietly working around it or picking a side.
 - State assumptions out loud when a request is ambiguous, instead of silently picking one interpretation.
 
 ## Code style
