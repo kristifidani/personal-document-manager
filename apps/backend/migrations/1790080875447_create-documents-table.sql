@@ -5,7 +5,7 @@ create table documents (
     id uuid primary key default gen_random_uuid(),
     filename text not null,
     mime_type text not null,
-    size_bytes bigint not null,
+    size_bytes bigint not null check (size_bytes >= 0),
     created_at timestamptz not null default now()
 );
 
