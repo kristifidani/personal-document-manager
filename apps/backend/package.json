@@ -17,6 +17,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
+    "migrate:create": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql",
+    "migrate:up": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
+    "migrate:down": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
   },
   "dependencies": {
@@ -26,6 +29,7 @@
     "fastify": "^5.12.5",
     "fastify-cli": "^8.0.2",
     "fastify-plugin": "^6.0.0",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {

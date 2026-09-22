@@ -7,6 +7,7 @@ Fastify 5 + TypeScript (CommonJS). Run all commands from this directory (no npm 
 - `knip.json` declares `src/routes/**` and `src/plugins/**` as entry points because autoload hides them from static analysis.
 - Config lives in `.env` (copy `.env.example`), loaded two ways: `fastify-cli` reads it for `dev`/`start` (via `process.loadEnvFile()`), and the `env` plugin reads it independently (`dotenv: true`) so tests get the same config without going through fastify-cli. `process.env` wins over `.env` in both.
 - `DATABASE_URL` must point at a running Postgres — start one with `docker compose up -d` in `infra/db/` (see [infra/db](../../infra/db)).
+- `migrations/` holds plain SQL migrations run by `node-pg-migrate` (`npm run migrate:up` / `migrate:down` / `migrate:create -- <name>`). Each file has an `-- Up Migration` / `-- Down Migration` pair. The CLI reads `DATABASE_URL` the same way the app does — via `.env` if present (`node --env-file-if-exists`), else `process.env` — so no separate `dotenv` dependency was needed.
 - Run one test: `node --test -r ts-node/register test/routes/health.test.ts`
 
 ## Dependency notes (verified against the npm registry, recheck before changing)
