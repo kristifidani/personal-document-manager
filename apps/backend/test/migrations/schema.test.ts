@@ -14,7 +14,7 @@ async function columnsOf(
   table: string
 ) {
   const { rows } = await app.pg.query<{ column_name: string }>(
-    'select column_name from information_schema.columns where table_name = $1',
+    'select column_name from information_schema.columns where table_schema = current_schema() and table_name = $1',
     [table]
   )
   return new Set(rows.map((row) => row.column_name))
