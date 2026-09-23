@@ -54,7 +54,9 @@ flowchart LR
 | **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                        |
 | **LLM: Claude API; embeddings: Voyage AI** _(planned)_             | Anthropic has no first-party embeddings endpoint.                                                                                                                       |
 
-**Not decided yet:** where uploaded files are stored, how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (the brief lists it as a later extension, but scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
+**Not decided yet:** how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (the brief lists it as a later extension, but scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
+
+Uploaded files are stored on local disk under a configurable `STORAGE_DIR`, named by document id (see [apps/backend/src/plugins/storage.ts](apps/backend/src/plugins/storage.ts)).
 
 ## Getting started
 
