@@ -48,7 +48,8 @@ test('documents table has the expected columns, types and defaults', async (t) =
     'filename',
     'id',
     'mime_type',
-    'size_bytes'
+    'size_bytes',
+    'storage_path'
   ])
   assert.strictEqual(columns.get('id')?.data_type, 'uuid')
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
@@ -56,6 +57,8 @@ test('documents table has the expected columns, types and defaults', async (t) =
   assert.strictEqual(columns.get('filename')?.is_nullable, 'NO')
   assert.strictEqual(columns.get('mime_type')?.data_type, 'text')
   assert.strictEqual(columns.get('size_bytes')?.data_type, 'bigint')
+  assert.strictEqual(columns.get('storage_path')?.data_type, 'text')
+  assert.strictEqual(columns.get('storage_path')?.is_nullable, 'NO')
   assert.strictEqual(
     columns.get('created_at')?.data_type,
     'timestamp with time zone'
@@ -68,8 +71,8 @@ test('documents.size_bytes rejects negative values', async (t) => {
 
   await assert.rejects(
     app.pg.query(
-      'insert into documents (filename, mime_type, size_bytes) values ($1, $2, $3)',
-      ['test.pdf', 'application/pdf', -1]
+      'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4)',
+      ['test.pdf', 'application/pdf', -1, 'test-path']
     ),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
@@ -103,8 +106,8 @@ test('jobs.status rejects values outside the known set', async (t) => {
   const app = await build(t)
 
   const { rows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes) values ($1, $2, $3) returning id',
-    ['test.pdf', 'application/pdf', 100]
+    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
+    ['test.pdf', 'application/pdf', 100, 'test-path']
   )
   const documentId = rows[0]?.id
 
@@ -136,8 +139,8 @@ test('deleting a document cascades to its jobs', async (t) => {
   const app = await build(t)
 
   const { rows: documentRows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes) values ($1, $2, $3) returning id',
-    ['test.pdf', 'application/pdf', 100]
+    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
+    ['test.pdf', 'application/pdf', 100, 'test-path']
   )
   const documentId = documentRows[0]?.id
 

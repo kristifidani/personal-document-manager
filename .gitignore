@@ -6,6 +6,7 @@ coverage/
 .env.*
 !.env.example
 *.log
+apps/backend/storage/
 
 # Python
 __pycache__/

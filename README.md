@@ -24,7 +24,7 @@ The goal: find and understand personal information without navigating a pile of 
 
 ## Architecture
 
-A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker. **Postgres is the only thing they share.**
+A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker. **Postgres is the only queue or broker they need** — but they also have to agree on where uploaded files live on disk (see Decisions below).
 
 ```mermaid
 flowchart LR
@@ -53,8 +53,9 @@ flowchart LR
 | **Extracted metadata stays correctable**                           | Once a user edits an extracted value, re-processing must not silently overwrite it.                                                                                     |
 | **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                        |
 | **LLM: Claude API; embeddings: Voyage AI** _(planned)_             | Anthropic has no first-party embeddings endpoint.                                                                                                                       |
+| **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.    |
 
-**Not decided yet:** where uploaded files are stored, how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (the brief lists it as a later extension, but scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
+**Not decided yet:** how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (the brief lists it as a later extension, but scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
 
 ## Getting started
 

@@ -5,15 +5,17 @@ declare module 'fastify' {
   interface FastifyInstance {
     config: {
       DATABASE_URL: string
+      STORAGE_DIR: string
     }
   }
 }
 
 const schema = {
   type: 'object',
-  required: ['DATABASE_URL'],
+  required: ['DATABASE_URL', 'STORAGE_DIR'],
   properties: {
-    DATABASE_URL: { type: 'string', minLength: 1 }
+    DATABASE_URL: { type: 'string', minLength: 1 },
+    STORAGE_DIR: { type: 'string', minLength: 1 }
   }
 }
 
