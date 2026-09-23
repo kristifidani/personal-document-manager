@@ -47,9 +47,20 @@ const documents: FastifyPluginAsync = async (fastify) => {
       }
     },
     async (request, reply) => {
-      const file = await request.file()
-      if (!file) throw httpError(400, 'No file provided')
+      // A single call to request.files() re-pipes the raw request into a
+      // fresh busboy parser, so it must be called exactly once and iterated
+      // to completion on the same generator — calling request.file()/files()
+      // again would try to re-consume an already-draining stream.
+      const parts = request.files()
+      const first = await parts.next()
+      if (first.done) throw httpError(400, 'No file provided')
+      const file = first.value
+
       if (!ACCEPTED_MIME_TYPES.has(file.mimetype)) {
+        // @fastify/multipart needs every file stream consumed to finish
+        // parsing the request; drain it before rejecting so we don't leave
+        // the parser (and the underlying connection) hanging.
+        file.file.resume()
         throw httpError(415, `Unsupported mime type: ${file.mimetype}`)
       }
 
@@ -58,12 +69,21 @@ const documents: FastifyPluginAsync = async (fastify) => {
       // A single cleanup path: `id` is always the on-disk filename (see
       // storage.ts), so it's safe to remove regardless of how far this got
       // before failing — a save() error leaving a partial file, a truncated
-      // upload, or a failed DB transaction all land here.
+      // upload, a second file part, or a failed DB transaction all land here.
       try {
         const { path, sizeBytes } = await fastify.storage.save(id, file.file)
 
         if (file.file.truncated) {
           throw httpError(413, 'File exceeds maximum allowed size')
+        }
+
+        // Keep draining the same iterator: with the multipart plugin's
+        // `files: 1` limit, a second file part surfaces here as a rejected
+        // FilesLimitError instead of being silently dropped after we've
+        // already committed the first one.
+        const second = await parts.next()
+        if (!second.done) {
+          throw httpError(400, 'Only one file may be uploaded per request')
         }
 
         const document = await fastify.pg.transact(async (client) => {

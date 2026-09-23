@@ -25,6 +25,15 @@ function multipartHeaders() {
   return { 'content-type': `multipart/form-data; boundary=${BOUNDARY}` }
 }
 
+function multipartTwoFilesPayload() {
+  const part = (filename: string, content: string) =>
+    `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/pdf\r\n\r\n${content}\r\n`
+
+  return Buffer.from(
+    part('one.pdf', 'first') + part('two.pdf', 'second') + `--${BOUNDARY}--\r\n`
+  )
+}
+
 type App = Awaited<ReturnType<typeof build>>
 
 interface UploadResponse {
@@ -135,6 +144,22 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   const app = await build(t)
   const oversized = Buffer.alloc(20 * 1024 * 1024 + 1, 'a')
 
+  // The route never returns the generated id on a failure response, so the
+  // only way to know which on-disk file to check for is to observe the id
+  // save() was called with. A whole-directory before/after snapshot would
+  // be flaky here: other test files write to the same STORAGE_DIR
+  // concurrently (Node's test runner runs test files in parallel).
+  let savedPath: string | undefined
+  const originalSave = app.storage.save.bind(app.storage)
+  app.storage.save = async (id, stream) => {
+    const result = await originalSave(id, stream)
+    savedPath = result.path
+    return result
+  }
+  t.after(() => {
+    app.storage.save = originalSave
+  })
+
   const res = await app.inject({
     method: 'POST',
     url: '/documents',
@@ -143,9 +168,45 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   })
 
   assert.strictEqual(res.statusCode, 413)
+  assert.ok(savedPath, 'expected storage.save to have been called')
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, savedPath)), false)
 
   const { rows } = await app.pg.query(
     "select id from documents where filename = 'big.pdf'"
+  )
+  assert.strictEqual(rows.length, 0)
+})
+
+test('POST /documents with two file parts rejects and cleans up the first', async (t) => {
+  const app = await build(t)
+
+  let savedPath: string | undefined
+  const originalSave = app.storage.save.bind(app.storage)
+  app.storage.save = async (id, stream) => {
+    const result = await originalSave(id, stream)
+    savedPath = result.path
+    return result
+  }
+  t.after(() => {
+    app.storage.save = originalSave
+  })
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/documents',
+    headers: multipartHeaders(),
+    payload: multipartTwoFilesPayload()
+  })
+
+  assert.strictEqual(res.statusCode, 413)
+  assert.ok(
+    savedPath,
+    'expected storage.save to have been called for the first file'
+  )
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, savedPath)), false)
+
+  const { rows } = await app.pg.query(
+    "select id from documents where filename in ('one.pdf', 'two.pdf')"
   )
   assert.strictEqual(rows.length, 0)
 })
