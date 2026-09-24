@@ -1,7 +1,7 @@
 -- Up Migration
--- Job queue shared with the worker, which claims rows with FOR UPDATE SKIP LOCKED.
+-- Job queue for async document processing.
 
--- MVP: no retries; add attempts/error columns when the worker needs them.
+-- MVP: no retries; add attempts/error columns when job processing needs them.
 create table jobs (
     id uuid primary key default gen_random_uuid(),
     document_id uuid not null references documents (id) on delete cascade,
@@ -11,7 +11,7 @@ create table jobs (
     created_at timestamptz not null default now()
 );
 
--- Speeds up the worker's claim query: WHERE status = 'pending' ORDER BY created_at.
+-- Speeds up claiming the oldest pending job: WHERE status = 'pending' ORDER BY created_at.
 create index jobs_status_created_at_idx on jobs (status, created_at);
 
 -- Down Migration

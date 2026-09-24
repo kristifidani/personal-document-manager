@@ -24,7 +24,7 @@ declare module 'fastify' {
 /**
  * Stores uploaded files, exposed as `fastify.storage`. Writes to local disk under `STORAGE_DIR`, naming each file by its document id.
  *
- * MVP: local disk requires the backend and worker to share one host. Switch to object storage if they are split; callers depend only on the `storage` interface.
+ * MVP: local disk. Callers depend only on the `storage` interface, so the backing store can change without touching them.
  */
 export default fp(
   async (fastify) => {

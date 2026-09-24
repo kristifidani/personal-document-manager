@@ -9,5 +9,5 @@ Fastify 5 + TypeScript (CommonJS). Run all commands from this directory (no npm 
 
 ## Dependency pins (recheck against the npm registry before changing)
 
-- TypeScript stays on 6.x, not 7.x: `typescript-eslint` declares peer `typescript <6.1.0`.
+- TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
 - `@types/node` follows the runtime major (see `engines`).

@@ -29,11 +29,11 @@ Single-user personal document manager. Product scope, architecture and the reaso
 - Every other exported or shared symbol gets a TSDoc comment. Don't restate types; use `@param`/`@returns`/`@throws` only when they add meaning.
 - Inside functions with several phases, mark each phase with a short step comment (`// validate upload`, `// persist document and job`). Never narrate single lines.
 - Add a "why" comment only where the code isn't self-evident. Describe the code as it is now, not how it got there.
-- Prefix deliberate MVP simplifications with `MVP:`, stating the limit and what would make us revisit it.
+- Prefix deliberate MVP simplifications with `MVP:`, stating the limit and, unless the README already owns that decision, what would make us revisit it.
 
 ## Where information lives
 
-Each fact has exactly one home; link to it rather than restating it.
+Each fact has exactly one home; don't restate it elsewhere.
 
 - **Code comments**: how and why the code behaves as it does.
 - **Root README**: product, architecture and major decisions — high level only.

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { FastifyPluginAsync } from 'fastify'
 
-/** MVP: PDFs and common image formats only; extend as the worker learns new formats. */
+/** MVP: PDFs and common image formats only; extend when document processing supports more. */
 const ACCEPTED_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
@@ -25,11 +25,11 @@ interface DocumentRow {
 /**
  * `/documents` routes.
  *
- * TODO: require auth once the auth model is decided (see README).
+ * TODO: require auth once the auth model is decided.
  */
 const documents: FastifyPluginAsync = async (fastify) => {
   /**
-   * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and its `extract` job (picked up by the worker) in one transaction. On any failure the stored file is removed.
+   * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and a pending `extract` job in one transaction. On any failure the stored file is removed.
    *
    * @throws 400 no file provided · 413 file too large or more than one file · 415 unsupported mime type
    */
@@ -77,14 +77,11 @@ const documents: FastifyPluginAsync = async (fastify) => {
         // store file
         const { path, sizeBytes } = await fastify.storage.save(id, file.file)
 
-        // enforce limits: size, then a second part, which the parser rejects
+        // enforce limits: size, then a second part, which the parser rejects with a 413
         if (file.file.truncated) {
           throw httpError(413, 'File exceeds maximum allowed size')
         }
-        const second = await parts.next()
-        if (!second.done) {
-          throw httpError(400, 'Only one file may be uploaded per request')
-        }
+        await parts.next()
 
         // persist document and job atomically
         const document = await fastify.pg.transact(async (client) => {

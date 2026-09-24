@@ -159,7 +159,7 @@ test('deleting a document cascades to its jobs', async (t) => {
   assert.strictEqual(remainingJobs.length, 0)
 })
 
-test('jobs has an index on (status, created_at) for the worker claim query', async (t) => {
+test('jobs has an index on (status, created_at) for claiming pending jobs', async (t) => {
   const app = await build(t)
 
   const { rows } = await app.pg.query<{ indexdef: string }>(

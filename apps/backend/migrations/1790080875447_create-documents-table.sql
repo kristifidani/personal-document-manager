@@ -1,5 +1,5 @@
 -- Up Migration
--- Uploaded documents' metadata; the files themselves live in a local storage.
+-- Uploaded documents' metadata; the files themselves live in storage.
 
 -- MVP: single user, so no owner/user_id column; multi-user support needs one.
 create table documents (
