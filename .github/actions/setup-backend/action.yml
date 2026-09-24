@@ -1,7 +1,7 @@
 name: Setup backend
 description: Set up Node.js and install apps/backend dependencies
 
-# TODO: pin third-party actions to verified commit SHAs instead of mutable tags.
+# TODO: pin actions to commit SHAs once CI uses secrets or a third-party action.
 
 runs:
   using: composite
