@@ -24,7 +24,7 @@ The goal: find and understand personal information without navigating a pile of 
 
 ## Architecture
 
-A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker. **Postgres is the only queue or broker they need.**
+A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker.
 
 ```mermaid
 flowchart LR

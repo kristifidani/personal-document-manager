@@ -1,12 +1,9 @@
-/**
- * Verifies the schema our migrations produce (not the migration tool).
- * Assumes `npm run migrate:up` already ran against `DATABASE_URL`.
- */
+/** Verifies the schema our migrations produce (not the migration tool). Assumes `npm run migrate:up` already ran against `DATABASE_URL`. */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import type { DatabaseError } from 'pg'
-// Type-only: autoloaded plugins aren't imported statically, so each test
-// file imports the modules whose `fastify.*` type augmentations it uses.
+// Type-only: helper.ts loads plugins via autoload, so TypeScript doesn't see
+// their `fastify.*` augmentations; each test file imports the ones it uses.
 import '@fastify/postgres'
 import { build } from '../helper'
 

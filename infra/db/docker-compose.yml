@@ -1,4 +1,4 @@
-# Local Postgres for development. Start with `docker compose up -d` from this directory.
+# Local Postgres for development.
 
 services:
   postgres:

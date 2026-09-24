@@ -1,6 +1,6 @@
 # Personal Document Manager — notes for Claude Code
 
-Single-user personal document manager. Product scope, architecture and the reasoning behind each decision live in [README.md](README.md).
+Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Working process (important — this is how this repo is built)
 

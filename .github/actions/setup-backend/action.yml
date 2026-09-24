@@ -1,9 +1,7 @@
 name: Setup backend
 description: Set up Node.js and install apps/backend dependencies
 
-# Future consideration (not required now):
-# Pin third-party actions to full commit SHAs instead of mutable tags.
-# Verify the SHA against the corresponding release before bumping the version.
+# TODO: pin third-party actions to verified commit SHAs instead of mutable tags.
 
 runs:
   using: composite
