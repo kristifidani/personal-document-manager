@@ -22,7 +22,7 @@ declare module 'fastify' {
 }
 
 /**
- * Stores uploaded files, exposed as `fastify.storage`. Writes to local disk under `STORAGE_DIR`, naming each file by its document id.
+ * Stores uploaded files under `STORAGE_DIR`, exposed as `fastify.storage`. Each file is named by its document id.
  *
  * MVP: local disk. Callers depend only on the `storage` interface, so the backing store can change without touching them.
  */

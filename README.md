@@ -24,7 +24,7 @@ The goal: find and understand personal information without navigating a pile of 
 
 ## Architecture
 
-A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker. **Postgres is the only queue or broker they need** — but they also have to agree on where uploaded files live on disk (see Decisions below).
+A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a Python worker.
 
 ```mermaid
 flowchart LR
@@ -35,12 +35,12 @@ flowchart LR
     W -->|"text, metadata, embeddings"| DB
 ```
 
-| Component    | Path                                     | Responsibility                                                                          | State   |
-| ------------ | ---------------------------------------- | --------------------------------------------------------------------------------------- | ------- |
-| Backend      | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.          | Started |
-| Worker       | `apps/worker`                            | Async pipeline: OCR/text extraction, classification and extraction via LLM, embeddings. | Planned |
-| Frontend     | `apps/frontend`                          | React + Vite UI.                                                                        | Planned |
-| Shared types | `packages/shared`                        | TypeScript types shared between frontend and backend.                                   | Planned |
+| Component    | Path                                     | Responsibility                                                                          |
+| ------------ | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Backend      | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.          |
+| Worker       | `apps/worker`                            | Async pipeline: OCR/text extraction, classification and extraction via LLM, embeddings. |
+| Frontend     | `apps/frontend`                          | React + Vite UI.                                                                        |
+| Shared types | `packages/shared`                        | TypeScript types shared between frontend and backend.                                   |
 
 ### Decisions and why
 
@@ -52,15 +52,13 @@ flowchart LR
 | **Answers carry their source**                                     | Every search result or answer returns a `document_id` (plus page/section where available), not just prose.                                                              |
 | **Extracted metadata stays correctable**                           | Once a user edits an extracted value, re-processing must not silently overwrite it.                                                                                     |
 | **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                        |
-| **LLM: Claude API; embeddings: Voyage AI** _(planned)_             | Anthropic has no first-party embeddings endpoint.                                                                                                                       |
-| **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.    |
+| **LLM: Claude API; embeddings: Voyage AI**                         | Anthropic has no first-party embeddings endpoint.                                                                                                                       |
+| **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.     |
 
-**Not decided yet:** how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (the brief lists it as a later extension, but scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
+**Not decided yet:** how embeddings are stored and searched, the auth model, and whether OCR ships in the MVP (scanned images are unsearchable without it). Each gets decided in the ticket that first needs it.
 
 ## Getting started
 
-Each app documents its own setup, configuration and commands next to its code. Today that is the backend:
+Each app documents its own setup in its README:
 
-- **Backend** (Node + Fastify): [apps/backend/README.md](apps/backend/README.md)
-
-The worker and frontend get their own README when they are started.
+- **Backend**: [apps/backend/README.md](apps/backend/README.md)

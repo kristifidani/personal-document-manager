@@ -23,23 +23,32 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-backend
       - run: npm run build
 
   dependencies:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-backend
       - run: npm audit --audit-level=high
       - run: npm run knip
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-backend
       - run: npm run lint
       - run: npm run format:check
@@ -47,6 +56,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:18-alpine
@@ -66,6 +76,10 @@ jobs:
       STORAGE_DIR: ./storage-test
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-backend
       - run: npm run migrate:up
+      # Round-trip: roll back every migration and re-apply, so down migrations are tested too.
+      - run: npm run migrate:down -- "$(ls migrations/*.sql | wc -l)" && npm run migrate:up
       - run: npm test

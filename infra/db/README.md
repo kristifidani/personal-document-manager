@@ -1,6 +1,6 @@
 # Local database
 
-Postgres for local development, matching `apps/backend/.env.example`'s `DATABASE_URL`.
+Postgres for local development.
 
 ```bash
 docker compose up -d      # start

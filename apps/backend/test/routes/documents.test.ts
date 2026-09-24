@@ -1,6 +1,7 @@
 /** Tests for `POST /documents` against a real database and storage dir. */
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import type { TestContext } from 'node:test'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 // Type-only: see the matching note in test/migrations/schema.test.ts.
@@ -75,6 +76,24 @@ async function cleanup(app: App, id: string) {
   await app.storage.remove(id)
 }
 
+/**
+ * Spies on `storage.save()` to learn the generated id, which failure responses omit (a directory snapshot would be flaky: test files run in parallel).
+ * @returns a getter for the saved path, `undefined` until `save()` runs.
+ */
+function spyOnSave(t: TestContext, app: App) {
+  let savedPath: string | undefined
+  const originalSave = app.storage.save.bind(app.storage)
+  app.storage.save = async (id, stream) => {
+    const result = await originalSave(id, stream)
+    savedPath = result.path
+    return result
+  }
+  t.after(() => {
+    app.storage.save = originalSave
+  })
+  return () => savedPath
+}
+
 test('POST /documents stores the file and enqueues a job', async (t) => {
   const app = await build(t)
   const content = Buffer.from('%PDF-1.4 fake pdf content')
@@ -144,18 +163,7 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   const app = await build(t)
   const oversized = Buffer.alloc(20 * 1024 * 1024 + 1, 'a')
 
-  // Spy on save() to learn the generated id, which failure responses omit.
-  // A directory snapshot would be flaky: test files run in parallel.
-  let savedPath: string | undefined
-  const originalSave = app.storage.save.bind(app.storage)
-  app.storage.save = async (id, stream) => {
-    const result = await originalSave(id, stream)
-    savedPath = result.path
-    return result
-  }
-  t.after(() => {
-    app.storage.save = originalSave
-  })
+  const savedPath = spyOnSave(t, app)
 
   const res = await app.inject({
     method: 'POST',
@@ -165,8 +173,9 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   })
 
   assert.strictEqual(res.statusCode, 413)
-  assert.ok(savedPath, 'expected storage.save to have been called')
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, savedPath)), false)
+  const path = savedPath()
+  assert.ok(path, 'expected storage.save to have been called')
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
 
   const { rows } = await app.pg.query(
     "select id from documents where filename = 'big.pdf'"
@@ -177,16 +186,7 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
 test('POST /documents with two file parts rejects and cleans up the first', async (t) => {
   const app = await build(t)
 
-  let savedPath: string | undefined
-  const originalSave = app.storage.save.bind(app.storage)
-  app.storage.save = async (id, stream) => {
-    const result = await originalSave(id, stream)
-    savedPath = result.path
-    return result
-  }
-  t.after(() => {
-    app.storage.save = originalSave
-  })
+  const savedPath = spyOnSave(t, app)
 
   const res = await app.inject({
     method: 'POST',
@@ -196,11 +196,12 @@ test('POST /documents with two file parts rejects and cleans up the first', asyn
   })
 
   assert.strictEqual(res.statusCode, 413)
+  const path = savedPath()
   assert.ok(
-    savedPath,
+    path,
     'expected storage.save to have been called for the first file'
   )
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, savedPath)), false)
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
 
   const { rows } = await app.pg.query(
     "select id from documents where filename in ('one.pdf', 'two.pdf')"

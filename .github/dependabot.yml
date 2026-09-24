@@ -1,0 +1,30 @@
+# Monthly grouped dependency update PRs; the cooldown skips releases younger than a week.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /apps/backend
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      backend:
+        patterns: ['*']
+    # Pinned on purpose: see apps/backend/CLAUDE.md.
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/*']
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
