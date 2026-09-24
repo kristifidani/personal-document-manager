@@ -1,0 +1,4 @@
+// Unused-code and dependencies check (`npm run knip`). Autoloaded plugins and routes are never imported statically, so they are declared as entry points.
+{
+  "entry": ["src/routes/**/*.ts", "src/plugins/**/*.ts"]
+}

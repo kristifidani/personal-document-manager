@@ -1,13 +1,12 @@
-// Verifies our own migration files produced the expected shape (not the
-// migration tool itself). Assumes migrations already ran against the DB.
-
+/**
+ * Verifies the schema our migrations produce (not the migration tool).
+ * Assumes `npm run migrate:up` already ran against `DATABASE_URL`.
+ */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import type { DatabaseError } from 'pg'
-// Type-only: pulls in fastify.pg's ambient type augmentation. helper.ts
-// doesn't import it statically (postgres is loaded via @fastify/autoload),
-// and node:test isolates each file, so each file needs this itself
-// (see test/plugins/postgres.test.ts, which gets it via importing the plugin).
+// Type-only: autoloaded plugins aren't imported statically, so each test
+// file imports the modules whose `fastify.*` type augmentations it uses.
 import '@fastify/postgres'
 import { build } from '../helper'
 

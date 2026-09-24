@@ -1,8 +1,7 @@
 -- Up Migration
+-- Job queue shared with the worker, which claims rows with FOR UPDATE SKIP LOCKED.
 
--- Postgres-as-queue (see README): the worker claims rows with
--- `FOR UPDATE SKIP LOCKED`. First cut — extend with attempts/error columns
--- when the worker ticket needs retry handling.
+-- MVP: no retries; add attempts/error columns when the worker needs them.
 create table jobs (
     id uuid primary key default gen_random_uuid(),
     document_id uuid not null references documents (id) on delete cascade,

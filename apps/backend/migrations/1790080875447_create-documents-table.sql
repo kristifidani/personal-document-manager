@@ -1,6 +1,7 @@
 -- Up Migration
+-- Uploaded documents' metadata; the files themselves live in a local storage.
 
--- Single-user app (see README): no owner/user_id column by design.
+-- MVP: single user, so no owner/user_id column; multi-user support needs one.
 create table documents (
     id uuid primary key default gen_random_uuid(),
     filename text not null,

@@ -1,17 +1,19 @@
 import { randomUUID } from 'node:crypto'
 import { FastifyPluginAsync } from 'fastify'
 
-// Matches the README's MVP scope: PDFs and images.
+/** MVP: PDFs and common image formats only; extend as the worker learns new formats. */
 const ACCEPTED_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
   'image/png'
 ])
 
+/** Creates an error that Fastify's default handler sends with `statusCode`. */
 function httpError(statusCode: number, message: string) {
   return Object.assign(new Error(message), { statusCode })
 }
 
+/** `documents` columns returned to the client. */
 interface DocumentRow {
   id: string
   filename: string
@@ -20,7 +22,17 @@ interface DocumentRow {
   created_at: Date
 }
 
+/**
+ * `/documents` routes.
+ *
+ * TODO: require auth once the auth model is decided (see README).
+ */
 const documents: FastifyPluginAsync = async (fastify) => {
+  /**
+   * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and its `extract` job (picked up by the worker) in one transaction. On any failure the stored file is removed.
+   *
+   * @throws 400 no file provided · 413 file too large or more than one file · 415 unsupported mime type
+   */
   fastify.post(
     '/documents',
     {
@@ -47,45 +59,34 @@ const documents: FastifyPluginAsync = async (fastify) => {
       }
     },
     async (request, reply) => {
-      // A single call to request.files() re-pipes the raw request into a
-      // fresh busboy parser, so it must be called exactly once and iterated
-      // to completion on the same generator — calling request.file()/files()
-      // again would try to re-consume an already-draining stream.
+      // read the first file part; the iterator must be consumed only once
       const parts = request.files()
       const first = await parts.next()
       if (first.done) throw httpError(400, 'No file provided')
       const file = first.value
 
+      // validate type; drain the rejected stream so the request can finish
       if (!ACCEPTED_MIME_TYPES.has(file.mimetype)) {
-        // @fastify/multipart needs every file stream consumed to finish
-        // parsing the request; drain it before rejecting so we don't leave
-        // the parser (and the underlying connection) hanging.
         file.file.resume()
         throw httpError(415, `Unsupported mime type: ${file.mimetype}`)
       }
 
       const id = randomUUID()
 
-      // A single cleanup path: `id` is always the on-disk filename (see
-      // storage.ts), so it's safe to remove regardless of how far this got
-      // before failing — a save() error leaving a partial file, a truncated
-      // upload, a second file part, or a failed DB transaction all land here.
       try {
+        // store file
         const { path, sizeBytes } = await fastify.storage.save(id, file.file)
 
+        // enforce limits: size, then a second part, which the parser rejects
         if (file.file.truncated) {
           throw httpError(413, 'File exceeds maximum allowed size')
         }
-
-        // Keep draining the same iterator: with the multipart plugin's
-        // `files: 1` limit, a second file part surfaces here as a rejected
-        // FilesLimitError instead of being silently dropped after we've
-        // already committed the first one.
         const second = await parts.next()
         if (!second.done) {
           throw httpError(400, 'Only one file may be uploaded per request')
         }
 
+        // persist document and job atomically
         const document = await fastify.pg.transact(async (client) => {
           const { rows } = await client.query<DocumentRow>(
             `insert into documents (id, filename, mime_type, size_bytes, storage_path)
@@ -101,6 +102,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
         })
         return reply.code(201).send(document)
       } catch (err) {
+        // clean up: `id` is the on-disk name, so this covers every failure
         await fastify.storage.remove(id)
         throw err
       }
