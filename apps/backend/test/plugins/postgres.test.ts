@@ -1,4 +1,4 @@
-// Registered directly (not via the full app/autoload), matching how a single plugin is tested in isolation: see fastify-cli's own template convention.
+/** Tests for the postgres plugin, registered in isolation with only `env`. */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import Fastify from 'fastify'

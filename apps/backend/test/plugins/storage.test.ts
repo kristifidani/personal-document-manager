@@ -1,4 +1,4 @@
-// Registered directly (not via the full app/autoload), matching how a single plugin is tested in isolation: see test/plugins/postgres.test.ts.
+/** Tests for the storage plugin, registered in isolation with only `env`. */
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -11,6 +11,7 @@ import Fastify from 'fastify'
 import env from '../../src/plugins/env'
 import storage from '../../src/plugins/storage'
 
+/** Builds a Fastify instance with only `env` and `storage`. */
 async function build(t: TestContext) {
   const fastify = Fastify()
   await fastify.register(env)

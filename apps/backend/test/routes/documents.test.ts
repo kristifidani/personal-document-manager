@@ -1,9 +1,9 @@
+/** Tests for `POST /documents` against a real database and storage dir. */
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-// Type-only: pulls in fastify.pg/config/storage's ambient type augmentations,
-// same reasoning as test/migrations/schema.test.ts.
+// Type-only: see the matching note in test/migrations/schema.test.ts.
 import '@fastify/postgres'
 import '../../src/plugins/env'
 import '../../src/plugins/storage'
@@ -144,11 +144,8 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   const app = await build(t)
   const oversized = Buffer.alloc(20 * 1024 * 1024 + 1, 'a')
 
-  // The route never returns the generated id on a failure response, so the
-  // only way to know which on-disk file to check for is to observe the id
-  // save() was called with. A whole-directory before/after snapshot would
-  // be flaky here: other test files write to the same STORAGE_DIR
-  // concurrently (Node's test runner runs test files in parallel).
+  // Spy on save() to learn the generated id, which failure responses omit.
+  // A directory snapshot would be flaky: test files run in parallel.
   let savedPath: string | undefined
   const originalSave = app.storage.save.bind(app.storage)
   app.storage.save = async (id, stream) => {

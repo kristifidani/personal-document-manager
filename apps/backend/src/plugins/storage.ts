@@ -7,18 +7,25 @@ import fp from 'fastify-plugin'
 declare module 'fastify' {
   interface FastifyInstance {
     storage: {
+      /**
+       * Streams `file` to storage under `id`.
+       * @returns `path` to persist in `documents.storage_path`, and the written size in bytes.
+       */
       save(
         id: string,
         file: NodeJS.ReadableStream
       ): Promise<{ path: string; sizeBytes: number }>
+      /** Deletes the file at `path`; a missing file is not an error. */
       remove(path: string): Promise<void>
     }
   }
 }
 
-// Local-disk storage under STORAGE_DIR. Files are named by document id;
-// `path` is kept separate from `id` in the return value so callers don't
-// have to assume that relationship (see documents migration comment).
+/**
+ * Stores uploaded files, exposed as `fastify.storage`. Writes to local disk under `STORAGE_DIR`, naming each file by its document id.
+ *
+ * MVP: local disk. Callers depend only on the `storage` interface, so the backing store can change without touching them.
+ */
 export default fp(
   async (fastify) => {
     const dir = resolve(fastify.config.STORAGE_DIR)

@@ -1,3 +1,0 @@
-{
-  "entry": ["src/routes/**/*.ts", "src/plugins/**/*.ts"]
-}

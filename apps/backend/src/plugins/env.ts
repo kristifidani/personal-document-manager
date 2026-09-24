@@ -4,7 +4,9 @@ import fp from 'fastify-plugin'
 declare module 'fastify' {
   interface FastifyInstance {
     config: {
+      /** Postgres connection string. */
       DATABASE_URL: string
+      /** Local directory for uploaded files; created at boot if missing. */
       STORAGE_DIR: string
     }
   }
@@ -19,10 +21,9 @@ const schema = {
   }
 }
 
-// dotenv: true lets this plugin read .env directly, so config is validated
-// the same way whether the app boots via fastify-cli (dev/start) or is
-// built directly in tests (test/helper.ts). process.env still wins over
-// .env when both are set.
+/**
+ * Validates the environment at boot and exposes it as `fastify.config`, so the app fails fast on missing config. `dotenv: true` reads `.env` directly, so tests, which build the app without fastify-cli, get the same config. `process.env` wins over `.env` when both are set.
+ */
 export default fp(
   async (fastify) => {
     await fastify.register(fastifyEnv, { schema, dotenv: true })
