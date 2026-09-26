@@ -14,4 +14,4 @@ npm run migrate:up
 npm run dev
 ```
 
-All scripts are in `package.json`.
+All scripts are in `package.json`. To try the API by hand, use [`requests.http`](requests.http) with the REST Client VS Code extension.

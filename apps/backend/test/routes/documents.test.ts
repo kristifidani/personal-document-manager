@@ -1,4 +1,5 @@
-/** Tests for `POST /documents` against a real database and storage dir. */
+/** Tests for the `/documents` routes against a real database and storage dir. */
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { TestContext } from 'node:test'
@@ -69,6 +70,18 @@ async function jobRows(app: App, documentId: string) {
     [documentId]
   )
   return rows
+}
+
+/** Uploads a small PDF through `POST /documents` and returns the response body. */
+async function upload(app: App, filename: string) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/documents',
+    headers: multipartHeaders(),
+    payload: multipartPayload(filename, 'application/pdf', Buffer.from('%PDF'))
+  })
+  assert.strictEqual(res.statusCode, 201)
+  return res.json<UploadResponse>()
 }
 
 async function cleanup(app: App, id: string) {
@@ -207,4 +220,61 @@ test('POST /documents with two file parts rejects and cleans up the first', asyn
     "select id from documents where filename in ('one.pdf', 'two.pdf')"
   )
   assert.strictEqual(rows.length, 0)
+})
+
+test('GET /documents and GET /documents/:id return an uploaded document', async (t) => {
+  const app = await build(t)
+  const uploaded = await upload(app, 'fetch-me.pdf')
+
+  const list = await app.inject({ method: 'GET', url: '/documents' })
+  assert.strictEqual(list.statusCode, 200)
+  // other test files share the database, so check membership rather than exact contents
+  const listed = list
+    .json<UploadResponse[]>()
+    .find((document) => document.id === uploaded.id)
+  assert.deepStrictEqual(listed, uploaded)
+
+  const single = await app.inject({
+    method: 'GET',
+    url: `/documents/${uploaded.id}`
+  })
+  assert.strictEqual(single.statusCode, 200)
+  assert.deepStrictEqual(single.json(), uploaded)
+
+  await cleanup(app, uploaded.id)
+})
+
+test('GET /documents lists newest first', async (t) => {
+  const app = await build(t)
+  const older = await upload(app, 'older.pdf')
+  const newer = await upload(app, 'newer.pdf')
+
+  const res = await app.inject({ method: 'GET', url: '/documents' })
+  const ids = res.json<UploadResponse[]>().map((document) => document.id)
+
+  const newerIndex = ids.indexOf(newer.id)
+  assert.ok(newerIndex !== -1, 'expected the newer document to be listed')
+  assert.ok(newerIndex < ids.indexOf(older.id))
+
+  await cleanup(app, older.id)
+  await cleanup(app, newer.id)
+})
+
+test('GET /documents/:id for an unknown id returns 404', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'GET',
+    url: `/documents/${randomUUID()}`
+  })
+
+  assert.strictEqual(res.statusCode, 404)
+})
+
+test('GET /documents/:id with a malformed id returns 400', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({ method: 'GET', url: '/documents/not-a-uuid' })
+
+  assert.strictEqual(res.statusCode, 400)
 })

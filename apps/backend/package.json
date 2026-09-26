@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "fastify start -w -P -r ts-node/register src/app.ts",
+    "dev": "fastify start -w --ignore-watch='/storage(/|$)' -P -r ts-node/register src/app.ts",
     "build": "tsc",
     "start": "npm run build && fastify start dist/app.js",
     "test": "node --test -r ts-node/register \"test/**/*.test.ts\"",
