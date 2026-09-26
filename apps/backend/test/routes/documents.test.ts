@@ -57,12 +57,6 @@ function postDocuments(app: App, ...parts: FilePart[]) {
   })
 }
 
-/** Deletes a document's row (its jobs cascade) and its file. */
-async function cleanup(app: App, id: string) {
-  await app.pg.query('delete from documents where id = $1', [id])
-  await app.storage.remove(id)
-}
-
 /**
  * Spies on `storage.save()` to learn the storage path of a rejected upload, which the error response omits (a directory snapshot would be flaky: test files run in parallel).
  * @returns a getter for the saved path, `undefined` until `save()` runs.
@@ -119,8 +113,6 @@ test('POST /documents stores the file and enqueues a job, and GET /documents/:id
   })
   assert.strictEqual(fetched.statusCode, 200)
   assert.deepStrictEqual(fetched.json(), body)
-
-  await cleanup(app, body.id)
 })
 
 test('POST /documents without a file returns 400', async (t) => {
@@ -198,9 +190,6 @@ test('GET /documents lists newest first', async (t) => {
   const newerIndex = ids.indexOf(newer.id)
   assert.ok(newerIndex !== -1, 'expected the newer document to be listed')
   assert.ok(newerIndex < ids.indexOf(older.id))
-
-  await cleanup(app, older.id)
-  await cleanup(app, newer.id)
 })
 
 test('GET /documents/:id for an unknown id returns 404', async (t) => {

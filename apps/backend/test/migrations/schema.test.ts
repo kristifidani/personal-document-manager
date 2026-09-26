@@ -110,8 +110,6 @@ test('jobs.status rejects values outside the known set', async (t) => {
     ),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
-
-  await app.pg.query('delete from documents where id = $1', [documentId])
 })
 
 test('jobs.document_id requires an existing document', async (t) => {
@@ -138,7 +136,6 @@ test('deleting a document cascades to its jobs', async (t) => {
   )
   const jobId = jobRows[0]?.id
 
-  // The delete under test doubles as this test's own cleanup.
   await app.pg.query('delete from documents where id = $1', [documentId])
 
   const { rows: remainingJobs } = await app.pg.query(

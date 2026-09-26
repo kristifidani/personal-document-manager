@@ -21,7 +21,6 @@ test('save() creates the storage directory and writes the file', async (t) => {
   const content = Buffer.from('hello world')
 
   const result = await fastify.storage.save(id, Readable.from(content))
-  t.after(() => fastify.storage.remove(result.path))
 
   assert.strictEqual(result.path, id)
   assert.strictEqual(result.sizeBytes, content.length)
