@@ -2,12 +2,9 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import type { DatabaseError } from 'pg'
-// Type-only: helper.ts loads plugins via autoload, so TypeScript doesn't see
-// their `fastify.*` augmentations; each test file imports the ones it uses.
+// Type-only: helper.ts loads plugins via autoload, so TypeScript doesn't see their `fastify.*` augmentations; each test file imports the ones it uses.
 import '@fastify/postgres'
-import { build } from '../helper'
-
-type App = Awaited<ReturnType<typeof build>>
+import { type App, build } from '../helper'
 
 type Column = {
   column_name: string
@@ -35,30 +32,44 @@ function codeOf(err: unknown) {
   return (err as DatabaseError).code
 }
 
+/** Asserts the table has exactly these columns, each with the given `data_type`. */
+function assertColumnTypes(
+  columns: Map<string, Column>,
+  expected: Record<string, string>
+) {
+  assert.deepStrictEqual(
+    [...columns.keys()].sort(),
+    Object.keys(expected).sort()
+  )
+  for (const [name, dataType] of Object.entries(expected)) {
+    assert.strictEqual(columns.get(name)?.data_type, dataType, name)
+  }
+}
+
+/** Inserts a document row directly, bypassing the API, and returns its id. */
+async function insertDocument(app: App, sizeBytes = 100) {
+  const { rows } = await app.pg.query<{ id: string }>(
+    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
+    ['test.pdf', 'application/pdf', sizeBytes, 'test-path']
+  )
+  return rows[0]?.id
+}
+
 test('documents table has the expected columns, types and defaults', async (t) => {
   const app = await build(t)
   const columns = await columnsOf(app, 'documents')
 
-  assert.deepStrictEqual([...columns.keys()].sort(), [
-    'created_at',
-    'filename',
-    'id',
-    'mime_type',
-    'size_bytes',
-    'storage_path'
-  ])
-  assert.strictEqual(columns.get('id')?.data_type, 'uuid')
+  assertColumnTypes(columns, {
+    id: 'uuid',
+    filename: 'text',
+    mime_type: 'text',
+    size_bytes: 'bigint',
+    storage_path: 'text',
+    created_at: 'timestamp with time zone'
+  })
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
-  assert.strictEqual(columns.get('filename')?.data_type, 'text')
   assert.strictEqual(columns.get('filename')?.is_nullable, 'NO')
-  assert.strictEqual(columns.get('mime_type')?.data_type, 'text')
-  assert.strictEqual(columns.get('size_bytes')?.data_type, 'bigint')
-  assert.strictEqual(columns.get('storage_path')?.data_type, 'text')
   assert.strictEqual(columns.get('storage_path')?.is_nullable, 'NO')
-  assert.strictEqual(
-    columns.get('created_at')?.data_type,
-    'timestamp with time zone'
-  )
   assert.match(columns.get('created_at')?.column_default ?? '', /now\(\)/)
 })
 
@@ -66,10 +77,7 @@ test('documents.size_bytes rejects negative values', async (t) => {
   const app = await build(t)
 
   await assert.rejects(
-    app.pg.query(
-      'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4)',
-      ['test.pdf', 'application/pdf', -1, 'test-path']
-    ),
+    insertDocument(app, -1),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
 })
@@ -78,34 +86,22 @@ test('jobs table has the expected columns, types and defaults', async (t) => {
   const app = await build(t)
   const columns = await columnsOf(app, 'jobs')
 
-  assert.deepStrictEqual([...columns.keys()].sort(), [
-    'created_at',
-    'document_id',
-    'id',
-    'job_type',
-    'status'
-  ])
-  assert.strictEqual(columns.get('id')?.data_type, 'uuid')
+  assertColumnTypes(columns, {
+    id: 'uuid',
+    document_id: 'uuid',
+    job_type: 'text',
+    status: 'text',
+    created_at: 'timestamp with time zone'
+  })
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
-  assert.strictEqual(columns.get('document_id')?.data_type, 'uuid')
   assert.strictEqual(columns.get('document_id')?.is_nullable, 'NO')
-  assert.strictEqual(columns.get('job_type')?.data_type, 'text')
-  assert.strictEqual(columns.get('status')?.data_type, 'text')
   assert.match(columns.get('status')?.column_default ?? '', /pending/)
-  assert.strictEqual(
-    columns.get('created_at')?.data_type,
-    'timestamp with time zone'
-  )
 })
 
 test('jobs.status rejects values outside the known set', async (t) => {
   const app = await build(t)
 
-  const { rows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
-    ['test.pdf', 'application/pdf', 100, 'test-path']
-  )
-  const documentId = rows[0]?.id
+  const documentId = await insertDocument(app)
 
   await assert.rejects(
     app.pg.query(
@@ -134,11 +130,7 @@ test('jobs.document_id requires an existing document', async (t) => {
 test('deleting a document cascades to its jobs', async (t) => {
   const app = await build(t)
 
-  const { rows: documentRows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
-    ['test.pdf', 'application/pdf', 100, 'test-path']
-  )
-  const documentId = documentRows[0]?.id
+  const documentId = await insertDocument(app)
 
   const { rows: jobRows } = await app.pg.query<{ id: string }>(
     'insert into jobs (document_id, job_type) values ($1, $2) returning id',

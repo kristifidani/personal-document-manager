@@ -1,0 +1,24 @@
+# Manual API requests for the REST Client VS Code extension (humao.rest-client).
+
+@baseUrl = http://localhost:{{$dotenv PORT}}
+
+### Health check
+GET {{baseUrl}}/health
+
+### Upload a document; point the `<` line at any PDF, JPEG or PNG (path is relative to this file)
+# @name upload
+POST {{baseUrl}}/documents
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="sample.pdf"
+Content-Type: application/pdf
+
+< ./sample.pdf
+--boundary--
+
+### List documents, newest first
+GET {{baseUrl}}/documents
+
+### Get the document from the last upload request
+GET {{baseUrl}}/documents/{{upload.response.body.$.id}}

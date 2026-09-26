@@ -1,17 +1,12 @@
 /** Tests for the postgres plugin, registered in isolation with only `env`. */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import Fastify from 'fastify'
 import env from '../../src/plugins/env'
 import postgres from '../../src/plugins/postgres'
+import { buildPlugins } from '../helper'
 
 test('database connection accepts queries', async (t) => {
-  const fastify = Fastify()
-  await fastify.register(env)
-  await fastify.register(postgres)
-  await fastify.ready()
-
-  t.after(() => fastify.close())
+  const fastify = await buildPlugins(t, env, postgres)
 
   const result = await fastify.pg.query<{ ok: number }>('SELECT 1 AS ok')
 

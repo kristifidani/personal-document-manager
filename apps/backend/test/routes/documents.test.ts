@@ -1,43 +1,25 @@
-/** Tests for `POST /documents` against a real database and storage dir. */
+/** Tests for the `/documents` routes against a real database and storage dir. */
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { TestContext } from 'node:test'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 // Type-only: see the matching note in test/migrations/schema.test.ts.
 import '@fastify/postgres'
 import '../../src/plugins/env'
 import '../../src/plugins/storage'
-import { build } from '../helper'
+import { type App, build } from '../helper'
 
 const BOUNDARY = 'test-boundary'
 
-function multipartPayload(filename: string, mimeType: string, content: Buffer) {
-  return Buffer.concat([
-    Buffer.from(
-      `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
-    ),
-    content,
-    Buffer.from(`\r\n--${BOUNDARY}--\r\n`)
-  ])
+/** One file part of a multipart upload. */
+interface FilePart {
+  filename: string
+  mimeType: string
+  content: Buffer
 }
 
-function multipartHeaders() {
-  return { 'content-type': `multipart/form-data; boundary=${BOUNDARY}` }
-}
-
-function multipartTwoFilesPayload() {
-  const part = (filename: string, content: string) =>
-    `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/pdf\r\n\r\n${content}\r\n`
-
-  return Buffer.from(
-    part('one.pdf', 'first') + part('two.pdf', 'second') + `--${BOUNDARY}--\r\n`
-  )
-}
-
-type App = Awaited<ReturnType<typeof build>>
-
-interface UploadResponse {
+interface DocumentResponse {
   id: string
   filename: string
   mime_type: string
@@ -45,42 +27,47 @@ interface UploadResponse {
   created_at: string
 }
 
-interface DocumentRow {
-  id: string
-  storage_path: string
-}
-
 interface JobRow {
   job_type: string
   status: string
 }
 
-async function documentRow(app: App, id: string) {
-  const { rows } = await app.pg.query<DocumentRow>(
-    'select * from documents where id = $1',
-    [id]
-  )
-  return rows[0]
+function pdf(filename: string, content = Buffer.from('%PDF')): FilePart {
+  return { filename, mimeType: 'application/pdf', content }
 }
 
-async function jobRows(app: App, documentId: string) {
-  const { rows } = await app.pg.query<JobRow>(
-    'select * from jobs where document_id = $1',
-    [documentId]
-  )
-  return rows
+/** Sends `POST /documents` with one `file` form field per part; no parts sends an empty form. */
+function postDocuments(app: App, ...parts: FilePart[]) {
+  const payload = Buffer.concat([
+    ...parts.flatMap(({ filename, mimeType, content }) => [
+      Buffer.from(
+        `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
+      ),
+      content,
+      Buffer.from('\r\n')
+    ]),
+    Buffer.from(`--${BOUNDARY}--\r\n`)
+  ])
+
+  return app.inject({
+    method: 'POST',
+    url: '/documents',
+    headers: { 'content-type': `multipart/form-data; boundary=${BOUNDARY}` },
+    payload
+  })
 }
 
+/** Deletes a document's row (its jobs cascade) and its file. */
 async function cleanup(app: App, id: string) {
   await app.pg.query('delete from documents where id = $1', [id])
   await app.storage.remove(id)
 }
 
 /**
- * Spies on `storage.save()` to learn the generated id, which failure responses omit (a directory snapshot would be flaky: test files run in parallel).
+ * Spies on `storage.save()` to learn the storage path of a rejected upload, which the error response omits (a directory snapshot would be flaky: test files run in parallel).
  * @returns a getter for the saved path, `undefined` until `save()` runs.
  */
-function spyOnSave(t: TestContext, app: App) {
+function spyOnSave(app: App) {
   let savedPath: string | undefined
   const originalSave = app.storage.save.bind(app.storage)
   app.storage.save = async (id, stream) => {
@@ -88,25 +75,18 @@ function spyOnSave(t: TestContext, app: App) {
     savedPath = result.path
     return result
   }
-  t.after(() => {
-    app.storage.save = originalSave
-  })
   return () => savedPath
 }
 
-test('POST /documents stores the file and enqueues a job', async (t) => {
+test('POST /documents stores the file and enqueues a job, and GET /documents/:id returns it', async (t) => {
   const app = await build(t)
   const content = Buffer.from('%PDF-1.4 fake pdf content')
 
-  const res = await app.inject({
-    method: 'POST',
-    url: '/documents',
-    headers: multipartHeaders(),
-    payload: multipartPayload('test.pdf', 'application/pdf', content)
-  })
+  // upload
+  const res = await postDocuments(app, pdf('test.pdf', content))
 
   assert.strictEqual(res.statusCode, 201)
-  const body = res.json<UploadResponse>()
+  const body = res.json<DocumentResponse>()
 
   assert.strictEqual(body.filename, 'test.pdf')
   assert.strictEqual(body.mime_type, 'application/pdf')
@@ -114,16 +94,31 @@ test('POST /documents stores the file and enqueues a job', async (t) => {
   assert.ok(body.id)
   assert.ok(body.created_at)
 
-  const document = await documentRow(app, body.id)
-  assert.strictEqual(document?.storage_path, body.id)
+  // file stored and job enqueued
+  const { rows: documentRows } = await app.pg.query<{ storage_path: string }>(
+    'select storage_path from documents where id = $1',
+    [body.id]
+  )
+  const storagePath = documentRows[0]?.storage_path
+  assert.ok(storagePath)
+  assert.ok(existsSync(join(app.config.STORAGE_DIR, storagePath)))
 
-  const jobs = await jobRows(app, body.id)
+  const { rows: jobs } = await app.pg.query<JobRow>(
+    'select * from jobs where document_id = $1',
+    [body.id]
+  )
+
   assert.strictEqual(jobs.length, 1)
   assert.strictEqual(jobs[0].job_type, 'extract')
   assert.strictEqual(jobs[0].status, 'pending')
 
-  const filePath = join(app.config.STORAGE_DIR, body.id)
-  assert.ok(existsSync(filePath))
+  // read it back
+  const fetched = await app.inject({
+    method: 'GET',
+    url: `/documents/${body.id}`
+  })
+  assert.strictEqual(fetched.statusCode, 200)
+  assert.deepStrictEqual(fetched.json(), body)
 
   await cleanup(app, body.id)
 })
@@ -131,80 +126,98 @@ test('POST /documents stores the file and enqueues a job', async (t) => {
 test('POST /documents without a file returns 400', async (t) => {
   const app = await build(t)
 
-  const res = await app.inject({
-    method: 'POST',
-    url: '/documents',
-    headers: multipartHeaders(),
-    payload: Buffer.from(`--${BOUNDARY}--\r\n`)
-  })
+  const res = await postDocuments(app)
 
   assert.strictEqual(res.statusCode, 400)
 })
 
 test('POST /documents with an unsupported mime type returns 415 and creates nothing', async (t) => {
   const app = await build(t)
+  const savedPath = spyOnSave(app)
 
-  const res = await app.inject({
-    method: 'POST',
-    url: '/documents',
-    headers: multipartHeaders(),
-    payload: multipartPayload('test.txt', 'text/plain', Buffer.from('hello'))
+  const res = await postDocuments(app, {
+    filename: 'test.txt',
+    mimeType: 'text/plain',
+    content: Buffer.from('hello')
   })
 
   assert.strictEqual(res.statusCode, 415)
-
-  const { rows } = await app.pg.query(
-    "select id from documents where filename = 'test.txt'"
-  )
-  assert.strictEqual(rows.length, 0)
+  // the row is inserted only after the file is saved, so no save means no row
+  assert.strictEqual(savedPath(), undefined)
 })
 
 test('POST /documents with an oversized file returns 413 and cleans up', async (t) => {
   const app = await build(t)
-  const oversized = Buffer.alloc(20 * 1024 * 1024 + 1, 'a')
+  const savedPath = spyOnSave(app)
 
-  const savedPath = spyOnSave(t, app)
-
-  const res = await app.inject({
-    method: 'POST',
-    url: '/documents',
-    headers: multipartHeaders(),
-    payload: multipartPayload('big.pdf', 'application/pdf', oversized)
-  })
+  const res = await postDocuments(
+    app,
+    pdf('big.pdf', Buffer.alloc(20 * 1024 * 1024 + 1, 'a'))
+  )
 
   assert.strictEqual(res.statusCode, 413)
   const path = savedPath()
   assert.ok(path, 'expected storage.save to have been called')
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
-
   const { rows } = await app.pg.query(
-    "select id from documents where filename = 'big.pdf'"
+    'select id from documents where storage_path = $1',
+    [path]
   )
   assert.strictEqual(rows.length, 0)
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
 })
 
 test('POST /documents with two file parts rejects and cleans up the first', async (t) => {
   const app = await build(t)
+  const savedPath = spyOnSave(app)
 
-  const savedPath = spyOnSave(t, app)
-
-  const res = await app.inject({
-    method: 'POST',
-    url: '/documents',
-    headers: multipartHeaders(),
-    payload: multipartTwoFilesPayload()
-  })
+  const res = await postDocuments(app, pdf('one.pdf'), pdf('two.pdf'))
 
   assert.strictEqual(res.statusCode, 413)
   const path = savedPath()
-  assert.ok(
-    path,
-    'expected storage.save to have been called for the first file'
-  )
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
-
+  assert.ok(path, 'expected storage.save to have been called')
   const { rows } = await app.pg.query(
-    "select id from documents where filename in ('one.pdf', 'two.pdf')"
+    'select id from documents where storage_path = $1',
+    [path]
   )
   assert.strictEqual(rows.length, 0)
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+})
+
+test('GET /documents lists newest first', async (t) => {
+  const app = await build(t)
+  const older = (
+    await postDocuments(app, pdf('older.pdf'))
+  ).json<DocumentResponse>()
+  const newer = (
+    await postDocuments(app, pdf('newer.pdf'))
+  ).json<DocumentResponse>()
+
+  const res = await app.inject({ method: 'GET', url: '/documents' })
+  const ids = res.json<DocumentResponse[]>().map((document) => document.id)
+
+  const newerIndex = ids.indexOf(newer.id)
+  assert.ok(newerIndex !== -1, 'expected the newer document to be listed')
+  assert.ok(newerIndex < ids.indexOf(older.id))
+
+  await cleanup(app, older.id)
+  await cleanup(app, newer.id)
+})
+
+test('GET /documents/:id for an unknown id returns 404', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'GET',
+    url: `/documents/${randomUUID()}`
+  })
+
+  assert.strictEqual(res.statusCode, 404)
+})
+
+test('GET /documents/:id with a malformed id returns 400', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({ method: 'GET', url: '/documents/not-a-uuid' })
+
+  assert.strictEqual(res.statusCode, 400)
 })
