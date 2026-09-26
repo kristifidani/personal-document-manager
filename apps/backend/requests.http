@@ -1,6 +1,6 @@
 # Manual API requests for the REST Client VS Code extension (humao.rest-client).
 
-@baseUrl = http://localhost:3000
+@baseUrl = http://localhost:{{$dotenv PORT}}
 
 ### Health check
 GET {{baseUrl}}/health

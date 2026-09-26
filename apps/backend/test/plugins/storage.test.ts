@@ -7,20 +7,12 @@ import { Readable } from 'node:stream'
 import type { TestContext } from 'node:test'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import Fastify from 'fastify'
 import env from '../../src/plugins/env'
 import storage from '../../src/plugins/storage'
+import { buildPlugins } from '../helper'
 
-/** Builds a Fastify instance with only `env` and `storage`. */
-async function build(t: TestContext) {
-  const fastify = Fastify()
-  await fastify.register(env)
-  await fastify.register(storage)
-  await fastify.ready()
-
-  t.after(() => fastify.close())
-
-  return fastify
+function build(t: TestContext) {
+  return buildPlugins(t, env, storage)
 }
 
 test('save() creates the storage directory and writes the file', async (t) => {

@@ -18,7 +18,8 @@ interface DocumentRow {
   id: string
   filename: string
   mime_type: string
-  size_bytes: number
+  // pg returns `bigint` as a string to avoid precision loss; the response schema serializes it as a number
+  size_bytes: string
   created_at: Date
 }
 
