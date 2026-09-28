@@ -4,9 +4,7 @@ import fp from 'fastify-plugin'
 declare module 'fastify' {
   interface FastifyInstance {
     config: {
-      /** Postgres connection string. */
       DATABASE_URL: string
-      /** Local directory for uploaded files; created at boot if missing. */
       STORAGE_DIR: string
     }
   }

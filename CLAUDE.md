@@ -37,6 +37,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 Each fact has exactly one home; don't restate it elsewhere.
 
 - **Code comments**: how and why the code behaves as it does.
+- **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
 - **Root README**: product, architecture and major decisions — high level only.
 - **App READMEs**: how a human sets up and runs that app; `package.json` is the command reference.
 - **CLAUDE.md**: rules an agent can't infer from the code.

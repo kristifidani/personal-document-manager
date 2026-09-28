@@ -1,10 +1,7 @@
 import envSchema from 'env-schema'
 
-/** The worker's validated environment. */
-export interface Config {
-  /** Postgres connection string; the same database as the backend. */
+interface Config {
   DATABASE_URL: string
-  /** Local directory for uploaded files; must be the backend's `STORAGE_DIR`. */
   STORAGE_DIR: string
 }
 
