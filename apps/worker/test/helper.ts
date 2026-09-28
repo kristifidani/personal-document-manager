@@ -35,7 +35,7 @@ export async function createDocument(
   return documentId
 }
 
-/** Inserts a document (see `createDocument`) and a pending `extract` job for it. The test must claim the job, so later tests start from an empty queue. */
+/** Inserts a document and a pending `extract` job. The test must claim the job so the next test starts with an empty queue. */
 export async function createDocumentWithJob(
   pool: Pool,
   config: Config,

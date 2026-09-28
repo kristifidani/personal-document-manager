@@ -16,7 +16,7 @@ const schema = {
 }
 
 /**
- * Validates the environment at startup, so the worker fails fast on missing config. Uses `env-schema`, the library behind the backend's `@fastify/env`, with the same rules. `dotenv: true` reads `.env` directly. `process.env` wins over `.env`, and `data` (used by tests) wins over both.
+ * Validates the environment at startup so the worker fails fast. Same rules as the backend (`env-schema` is what `@fastify/env` uses). Precedence: `data` (tests) over `process.env` over `.env`.
  * @throws when a variable is missing or empty.
  */
 export function loadConfig(data?: Partial<Config>): Config {

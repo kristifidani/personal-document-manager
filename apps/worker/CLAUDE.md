@@ -1,6 +1,6 @@
 # Worker (`apps/worker`)
 
-Setup and scripts: @README.md
+Setup, how it works and manual testing: @README.md
 
 Plain Node + TypeScript (CommonJS), no framework, with no npm workspaces yet. `npm run check` must pass before a PR.
 

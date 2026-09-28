@@ -36,10 +36,10 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 Each fact has exactly one home; don't restate it elsewhere.
 
-- **Code comments**: how and why the code behaves as it does.
+- **Code comments**: how and why each piece of code behaves as it does. The end-to-end flow belongs to the app README; don't restate it.
 - **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
 - **Root README**: product, architecture and major decisions — high level only.
-- **App READMEs**: how a human sets up and runs that app; `package.json` is the command reference.
+- **App READMEs**: how a human sets up, runs and manually tests that app, and how it works end to end (the flow between its modules and what happens on failure); `package.json` is the command reference.
 - **CLAUDE.md**: rules an agent can't infer from the code.
 - **PRs and git history**: progress, status, changes and bug write-ups. Docs are not a changelog or roadmap.
 

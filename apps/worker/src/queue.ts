@@ -8,9 +8,9 @@ export interface Job {
 }
 
 /**
- * Claims the oldest pending job by moving it to `processing`, or returns `undefined` when none is pending. `for update skip locked` lets concurrent claimers skip a row another one is claiming, so each job is claimed once.
+ * Claims the oldest pending job (sets it to `processing`), or returns `undefined` if none. `skip locked` makes concurrent claims skip each other's row, so each job is claimed once.
  *
- * MVP: a job left in `processing` by a crashed worker stays there; nothing reclaims it. Reclaiming needs an attempts cap so a job that crashes the worker can't loop forever, so it comes with retries (see the jobs migration).
+ * MVP: a crashed worker's `processing` job is never reclaimed. Reclaiming needs an attempts cap, so it comes with retries.
  */
 export async function claimJob(pool: Pool): Promise<Job | undefined> {
   const { rows } = await pool.query<Job>(
@@ -27,7 +27,7 @@ export async function claimJob(pool: Pool): Promise<Job | undefined> {
   return rows[0]
 }
 
-/** Records a claimed job's outcome. A finished job never returns to `pending`, so each job is attempted at most once. */
+/** Records a claimed job's outcome. */
 export async function finishJob(
   pool: Pool,
   id: string,
