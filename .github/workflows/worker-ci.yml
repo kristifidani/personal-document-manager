@@ -54,13 +54,34 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
 
-  # No database yet: add the Postgres service and backend migrations (see backend-ci.yml) with the first test that needs them.
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: personal_document_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/personal_document_manager
+      # Absolute, so the backend's reset (run from apps/backend) and the worker see the same directory.
+      STORAGE_DIR: /tmp/pdm-storage
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # The backend owns the schema and the test-data reset.
+      - uses: ./.github/actions/setup-backend
+      - run: npm run migrate:up
+        working-directory: apps/backend
       - uses: ./.github/actions/setup-worker
       - run: npm test
