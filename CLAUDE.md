@@ -18,7 +18,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Code style
 
-- Follow whatever pattern already exists in the file/module being touched (error handling, naming, structure) over introducing a new one.
+- Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
 - Modular, typed, idiomatic code; descriptive names; short TODOs.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Keep dependencies minimal — prefer the standard library where reasonable.

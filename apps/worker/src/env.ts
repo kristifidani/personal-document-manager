@@ -1,0 +1,26 @@
+import envSchema from 'env-schema'
+
+/** The worker's validated environment. */
+export interface Config {
+  /** Postgres connection string; the same database as the backend. */
+  DATABASE_URL: string
+  /** Local directory for uploaded files; must be the backend's `STORAGE_DIR`. */
+  STORAGE_DIR: string
+}
+
+const schema = {
+  type: 'object',
+  required: ['DATABASE_URL', 'STORAGE_DIR'],
+  properties: {
+    DATABASE_URL: { type: 'string', minLength: 1 },
+    STORAGE_DIR: { type: 'string', minLength: 1 }
+  }
+}
+
+/**
+ * Validates the environment at startup, so the worker fails fast on missing config. Uses `env-schema`, the library behind the backend's `@fastify/env`, with the same rules. `dotenv: true` reads `.env` directly. `process.env` wins over `.env`, and `data` (used by tests) wins over both.
+ * @throws when a variable is missing or empty.
+ */
+export function loadConfig(data?: Partial<Config>): Config {
+  return envSchema<Config>({ schema, dotenv: true, data })
+}
