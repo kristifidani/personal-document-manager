@@ -1,8 +1,22 @@
-/** Tests for `runOnce`: one full claim → handle → finish cycle against the real queue. */
+/** Tests for `runOnce` (one claim → handle → finish cycle) and the `pollJobs` loop, against the real queue. */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import { runOnce } from '../src/worker'
+import { setTimeout as sleep } from 'node:timers/promises'
+import type { Pool } from 'pg'
+import type { Config } from '../src/env'
+import { pollJobs, runOnce } from '../src/worker'
 import { connect, createDocumentWithJob, jobStatus } from './helper'
+
+/** Runs `pollJobs` for 100 ms, far below `POLL_INTERVAL_MS`, then aborts it. @returns how long it took to stop. */
+async function pollBriefly(pool: Pool, config: Config) {
+  const shutdown = new AbortController()
+  const start = performance.now()
+  const polling = pollJobs(pool, config, shutdown.signal)
+  await sleep(100)
+  shutdown.abort()
+  await polling
+  return performance.now() - start
+}
 
 test('returns false when no job is pending', async (t) => {
   const { pool, config } = connect(t)
@@ -28,4 +42,28 @@ test('marks a job failed when its handler throws', async (t) => {
 
   assert.strictEqual(await runOnce(pool, config), true)
   assert.strictEqual(await jobStatus(pool, jobId), 'failed')
+})
+
+test('pollJobs sleeps when idle and stops as soon as it is aborted', async (t) => {
+  const { pool, config } = connect(t)
+  const query = t.mock.method(pool, 'query')
+
+  const elapsed = await pollBriefly(pool, config)
+
+  assert.strictEqual(query.mock.callCount(), 1)
+  assert.ok(elapsed < 2_000)
+})
+
+test('pollJobs sleeps after a database error instead of retrying at once', async (t) => {
+  const { pool, config } = connect(t)
+  // reject on a later tick, like a real connection error; an immediate rejection would starve the timers if the loop spun
+  const query = t.mock.method(pool, 'query', async () => {
+    await sleep(1)
+    throw new Error('database down')
+  })
+
+  const elapsed = await pollBriefly(pool, config)
+
+  assert.strictEqual(query.mock.callCount(), 1)
+  assert.ok(elapsed < 2_000)
 })
