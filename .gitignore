@@ -8,13 +8,6 @@ coverage/
 *.log
 apps/backend/storage/
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-*.egg-info/
-
 # editor
 .vscode/*
 !.vscode/extensions.json

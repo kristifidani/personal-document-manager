@@ -18,7 +18,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Code style
 
-- Follow whatever pattern already exists in the file/module being touched (error handling, naming, structure) over introducing a new one.
+- Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
 - Modular, typed, idiomatic code; descriptive names; short TODOs.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Keep dependencies minimal — prefer the standard library where reasonable.
@@ -37,6 +37,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 Each fact has exactly one home; don't restate it elsewhere.
 
 - **Code comments**: how and why the code behaves as it does.
+- **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
 - **Root README**: product, architecture and major decisions — high level only.
 - **App READMEs**: how a human sets up and runs that app; `package.json` is the command reference.
 - **CLAUDE.md**: rules an agent can't infer from the code.
