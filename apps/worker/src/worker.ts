@@ -43,7 +43,6 @@ export async function runOnce(pool: Pool, config: Config): Promise<boolean> {
   try {
     await handleJob(pool, config, job)
     status = 'done'
-    console.log(`Job ${job.id} (${job.job_type}) done`)
   } catch (err) {
     // MVP: the error is only logged; `jobs` has no error column yet.
     status = 'failed'
@@ -52,5 +51,6 @@ export async function runOnce(pool: Pool, config: Config): Promise<boolean> {
 
   // record the outcome
   await finishJob(pool, job.id, status)
+  if (status === 'done') console.log(`Job ${job.id} (${job.job_type}) done`)
   return true
 }
