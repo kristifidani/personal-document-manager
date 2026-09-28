@@ -1,7 +1,7 @@
 /**
  * Wipes all app data for a clean slate: empties every table except the migrations log, and deletes every file in `STORAGE_DIR`. The schema stays migrated.
  *
- * Runs as `npm run data:reset`, and before the suite in `npm test`: test files run in parallel, so the reset happens once, up front.
+ * Runs as `npm run data:reset`, and before the suite in `npm test`: test files run in parallel, so the reset happens once, up front. The worker's `npm test` runs it too, since the backend owns the schema.
  *
  * MVP: wipes whatever `DATABASE_URL` points at, with no guard; add one before any non-local database exists.
  */

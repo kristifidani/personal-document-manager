@@ -1,6 +1,7 @@
 import envSchema from 'env-schema'
 
-interface Config {
+/** The validated environment returned by `loadConfig`. */
+export interface Config {
   DATABASE_URL: string
   STORAGE_DIR: string
 }

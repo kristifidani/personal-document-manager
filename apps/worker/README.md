@@ -4,7 +4,7 @@ The background worker of the [Personal Document Manager](../../README.md), built
 
 ## Getting started
 
-Requires the Node version in `package.json` (`engines`). Run everything from this directory.
+Requires Docker and the Node version in `package.json` (`engines`). Set up the [backend](../backend/README.md) first, including its database and migrations: the worker shares its database and storage. Run everything from this directory.
 
 ```bash
 npm install
@@ -12,4 +12,4 @@ cp .env.example .env
 npm run dev
 ```
 
-The worker shares the backend's database and storage: set up the [backend](../backend/README.md) first. All scripts are in `package.json`.
+All scripts are in `package.json`.
