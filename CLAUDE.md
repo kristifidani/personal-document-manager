@@ -24,6 +24,16 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Keep dependencies minimal — prefer the standard library where reasonable.
 - Before finishing a ticket, check for redundant or unused code/dependencies and anything added ahead of need; keep things simple.
 
+## Dependencies
+
+The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfile.
+
+- Install from the repo root (`npm install`, `npm ci`) so use of the shared lockfile and workspace-wide install is explicit; npm otherwise discovers the workspace root even when invoked inside an app directory.
+- Dev tools shared by the apps (TypeScript, ESLint, Prettier, knip, ts-node, `@types/*`) are declared once, in the root `package.json`. An app's `package.json` declares its own runtime dependencies, even when another app uses the same one.
+- Pins (recheck against the npm registry before changing):
+  - TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
+  - `@types/node` follows the runtime major (see `engines` in each app).
+
 ## Comments
 
 - Document each module once, in the TSDoc comment on its main export: what it is, why it exists, and where it plugs in. Add a file header only when a file has no single main export (tests, SQL, config).

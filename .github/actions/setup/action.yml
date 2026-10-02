@@ -1,5 +1,5 @@
-name: Setup backend
-description: Set up Node.js and install apps/backend dependencies
+name: Setup
+description: Set up Node.js and install every workspace's dependencies from the root lockfile
 
 # TODO: pin actions to commit SHAs once CI uses secrets or a third-party action.
 
@@ -10,8 +10,7 @@ runs:
       with:
         node-version: 24
         cache: npm
-        cache-dependency-path: apps/backend/package-lock.json
 
+    # From the root on purpose: inside an app directory, npm installs only that app's dependencies.
     - run: npm ci
       shell: bash
-      working-directory: apps/backend

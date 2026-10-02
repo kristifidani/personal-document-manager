@@ -1,7 +1,6 @@
 # Personal Document Manager
 
-[![Backend CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/backend-ci.yml)
-[![Worker CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/worker-ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/worker-ci.yml)
+[![CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/ci.yml)
 
 A private, single-user place for your important documents. Upload a PDF or image, let AI pull out its structure, then **ask questions across your whole collection** instead of opening files one by one.
 
@@ -41,7 +40,7 @@ flowchart LR
 | Backend      | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.          |
 | Worker       | [`apps/worker`](apps/worker/README.md)   | Async pipeline: OCR/text extraction, classification and extraction via LLM, embeddings. |
 | Frontend     | `apps/frontend`                          | React + Vite UI.                                                                        |
-| Shared types | `packages/shared`                        | TypeScript types shared between frontend and backend.                                   |
+| Shared types | `packages/shared`                        | TypeScript types shared across the apps.                                                |
 
 ### Decisions and why
 
@@ -60,7 +59,13 @@ flowchart LR
 
 ## Getting started
 
-Each app documents its own setup in its README:
+The repo is one npm workspace with a single lockfile. Install every app's dependencies once, from the repo root:
+
+```bash
+npm install
+```
+
+Each app then documents its own setup in its README:
 
 - **Backend**: [apps/backend/README.md](apps/backend/README.md)
 - **Worker**: [apps/worker/README.md](apps/worker/README.md)

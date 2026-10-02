@@ -1,4 +1,4 @@
-name: Worker CI
+name: CI
 
 # Runs once per PR update and once more when the PR is merged to main.
 
@@ -16,21 +16,8 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-defaults:
-  run:
-    working-directory: apps/worker
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-worker
-      - run: npm run build
-
+  # Repo-wide, so it runs once: the apps share one lockfile, and knip checks every workspace.
   dependencies:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -38,25 +25,41 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-worker
+      - uses: ./.github/actions/setup
       - run: npm audit --audit-level=high
-      - run: npm run knip
+      - run: npx knip
 
-  lint:
+  build_and_lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, worker]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-worker
+      - uses: ./.github/actions/setup
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      # Typecheck already covers the type errors; this confirms the production build still emits.
+      - run: npm run build
 
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, worker]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
     services:
       postgres:
         image: postgres:18-alpine
@@ -79,9 +82,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      # The backend owns the schema and the test-data reset.
-      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup
+      # The backend owns the schema, so every app's tests migrate through it.
       - run: npm run migrate:up
         working-directory: apps/backend
-      - uses: ./.github/actions/setup-worker
+      # Round-trip: roll back every migration and re-apply, so down migrations are tested too.
+      - if: matrix.app == 'backend'
+        run: npm run migrate:down -- "$(ls migrations/*.sql | wc -l)" && npm run migrate:up
       - run: npm test

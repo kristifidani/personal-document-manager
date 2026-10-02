@@ -14,12 +14,12 @@
     "typecheck": "tsc -p test/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write . \"../../*.md\" ../../infra ../../.github",
-    "format:check": "prettier --check . \"../../*.md\" ../../infra ../../.github",
-    "knip": "knip",
-    "migrate:create": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql",
-    "migrate:up": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
-    "migrate:down": "node --env-file-if-exists=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
+    "format": "prettier --write . \"../../*.{md,json,jsonc,mjs}\" ../../infra ../../.github",
+    "format:check": "prettier --check . \"../../*.{md,json,jsonc,mjs}\" ../../infra ../../.github",
+    "knip": "knip --directory ../..",
+    "migrate:create": "node --env-file-if-exists=.env ../../node_modules/node-pg-migrate/bin/node-pg-migrate.js create -j sql",
+    "migrate:up": "node --env-file-if-exists=.env ../../node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
+    "migrate:down": "node --env-file-if-exists=.env ../../node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
     "data:reset": "node --env-file-if-exists=.env -r ts-node/register test/reset-data.ts",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
   },
@@ -33,17 +33,5 @@
     "fastify-plugin": "^6.0.0",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^24.13.6",
-    "@types/pg": "^8.23.1",
-    "eslint": "^10.11.0",
-    "eslint-config-prettier": "^10.1.8",
-    "knip": "^6.37.0",
-    "prettier": "^3.9.8",
-    "ts-node": "^10.9.2",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.70.0"
   }
 }
