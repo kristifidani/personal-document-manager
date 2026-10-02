@@ -1,7 +1,6 @@
 # Personal Document Manager
 
-[![Backend CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/backend-ci.yml)
-[![Worker CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/worker-ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/worker-ci.yml)
+[![CI](https://github.com/kristifidani/personal-document-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/kristifidani/personal-document-manager/actions/workflows/ci.yml)
 
 A private, single-user place for your important documents. Upload a PDF or image, let AI pull out its structure, then **ask questions across your whole collection** instead of opening files one by one.
 
