@@ -1,0 +1,9 @@
+// Unused-code and dependencies check (each app's `npm run knip`). It lives at the root because the shared dev tools are declared in the root package.json, which knip only sees from here.
+{
+  "workspaces": {
+    // Plugins and routes are declared as entry points because nothing in src/ imports them: app.ts autoloads them by directory.
+    "apps/backend": {
+      "entry": ["src/routes/**/*.ts", "src/plugins/**/*.ts"]
+    }
+  }
+}

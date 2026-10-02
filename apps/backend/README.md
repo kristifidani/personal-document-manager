@@ -4,10 +4,9 @@ The API of the [Personal Document Manager](../../README.md), built with Fastify 
 
 ## Getting started
 
-Requires Docker and the Node version in `package.json` (`engines`). Run everything from this directory.
+Requires Docker and the Node version in `package.json` (`engines`). Install dependencies from the repo root first (see the [root README](../../README.md#getting-started)), then run everything from this directory.
 
 ```bash
-npm install
 cp .env.example .env
 docker compose -f ../../infra/db/docker-compose.yml up -d
 npm run migrate:up

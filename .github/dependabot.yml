@@ -2,33 +2,17 @@
 
 version: 2
 updates:
+  # The root entry covers every workspace: they share the root lockfile.
   - package-ecosystem: npm
-    directory: /apps/backend
+    directory: /
     schedule:
       interval: monthly
     cooldown:
       default-days: 7
     groups:
-      backend:
+      npm:
         patterns: ['*']
-    # Pinned on purpose: see the app's CLAUDE.md.
-    ignore:
-      - dependency-name: typescript
-        update-types:
-          ['version-update:semver-minor', 'version-update:semver-major']
-      - dependency-name: '@types/node'
-        update-types: ['version-update:semver-major']
-
-  - package-ecosystem: npm
-    directory: /apps/worker
-    schedule:
-      interval: monthly
-    cooldown:
-      default-days: 7
-    groups:
-      worker:
-        patterns: ['*']
-    # Pinned on purpose: see the app's CLAUDE.md.
+    # Pinned on purpose: see the root CLAUDE.md.
     ignore:
       - dependency-name: typescript
         update-types:
