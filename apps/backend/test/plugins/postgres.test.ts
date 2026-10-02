@@ -12,3 +12,10 @@ test('database connection accepts queries', async (t) => {
 
   assert.strictEqual(result.rows[0]?.ok, 1)
 })
+
+test('an idle client error is logged, not thrown', async (t) => {
+  const fastify = await buildPlugins(t, env, postgres)
+
+  // an `error` event with no listener throws, so this fails without the plugin's handler
+  assert.doesNotThrow(() => fastify.pg.pool.emit('error', new Error('boom')))
+})

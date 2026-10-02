@@ -112,6 +112,20 @@ test('jobs.status rejects values outside the known set', async (t) => {
   )
 })
 
+test('jobs.job_type rejects unknown types', async (t) => {
+  const app = await build(t)
+
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    app.pg.query('insert into jobs (document_id, job_type) values ($1, $2)', [
+      documentId,
+      'bogus'
+    ]),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
 test('jobs.document_id requires an existing document', async (t) => {
   const app = await build(t)
   const nonExistentDocumentId = '00000000-0000-0000-0000-000000000000'

@@ -5,10 +5,10 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 ## Working process
 
 - Work in small, single-purpose tickets — one ticket = one branch = one PR. Never scaffold or implement multiple layers/apps in one pass.
+- Exception: small, unrelated fixes may share one PR, with one commit per fix.
 - There is no fixed roadmap. After a ticket's PR is merged, recommend what to do next and let the user decide the next step and its size.
 - Branch per ticket off `main`, open a PR, don't commit straight to `main`.
 - Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first — make the changes and summarize them; the user stages and commits.
-- When a ticket is ready, draft its PR description from `.github/pull_request_template.md`.
 
 ## Decision-making rules
 

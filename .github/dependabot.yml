@@ -11,7 +11,24 @@ updates:
     groups:
       backend:
         patterns: ['*']
-    # Pinned on purpose: see apps/backend/CLAUDE.md.
+    # Pinned on purpose: see the app's CLAUDE.md.
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: npm
+    directory: /apps/worker
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      worker:
+        patterns: ['*']
+    # Pinned on purpose: see the app's CLAUDE.md.
     ignore:
       - dependency-name: typescript
         update-types:
