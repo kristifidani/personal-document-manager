@@ -1,38 +1,10 @@
-import js from '@eslint/js'
 import { defineConfig } from 'eslint/config'
-import prettier from 'eslint-config-prettier'
-import tseslint from 'typescript-eslint'
+import base from '../../eslint.config.base.mjs'
 
-export default defineConfig(
-  { ignores: ['dist/'] },
-  js.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
-  {
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname
-      }
-    },
-    rules: {
-      // node:test's test() returns a promise that the test runner manages itself.
-      '@typescript-eslint/no-floating-promises': [
-        'error',
-        {
-          allowForKnownSafeCalls: [
-            {
-              from: 'package',
-              package: 'node:test',
-              name: ['test', 'describe', 'it']
-            }
-          ]
-        }
-      ]
+export default defineConfig(base, {
+  languageOptions: {
+    parserOptions: {
+      tsconfigRootDir: import.meta.dirname
     }
-  },
-  {
-    files: ['**/*.{js,mjs}'],
-    extends: [tseslint.configs.disableTypeChecked]
-  },
-  prettier
-)
+  }
+})
