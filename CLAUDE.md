@@ -28,7 +28,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfile.
 
-- Install from the repo root (`npm install`, `npm ci`): run inside an app directory, npm installs only that app's dependencies.
+- Install from the repo root (`npm install`, `npm ci`) so use of the shared lockfile and workspace-wide install is explicit; npm otherwise discovers the workspace root even when invoked inside an app directory.
 - Dev tools shared by the apps (TypeScript, ESLint, Prettier, knip, ts-node, `@types/*`) are declared once, in the root `package.json`. An app's `package.json` declares its own runtime dependencies, even when another app uses the same one.
 - Pins (recheck against the npm registry before changing):
   - TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
