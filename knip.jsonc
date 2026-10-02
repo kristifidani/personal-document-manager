@@ -1,4 +1,4 @@
-// Unused-code and dependencies check (each app's `npm run knip`). It lives at the root because the shared dev tools are declared in the root package.json, which knip only sees from here.
+// Unused-code and dependencies check. Each app's `npm run knip` runs it over the whole repo, from the root: the shared dev tools are declared in the root package.json, which a single-app run would not check.
 {
   "workspaces": {
     // Plugins and routes are declared as entry points because nothing in src/ imports them: app.ts autoloads them by directory.
