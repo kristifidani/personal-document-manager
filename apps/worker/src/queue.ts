@@ -27,11 +27,15 @@ export async function claimJob(pool: Pool): Promise<Job | undefined> {
   return rows[0]
 }
 
-/** Records a claimed job's outcome. */
+/** Records a claimed job's outcome: `failed` with `error` as the reason when one is given, `done` otherwise. */
 export async function finishJob(
   pool: Pool,
   id: string,
-  status: 'done' | 'failed'
+  error?: string
 ): Promise<void> {
-  await pool.query('update jobs set status = $2 where id = $1', [id, status])
+  await pool.query('update jobs set status = $2, error = $3 where id = $1', [
+    id,
+    error === undefined ? 'done' : 'failed',
+    error ?? null
+  ])
 }

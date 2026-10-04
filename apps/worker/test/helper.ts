@@ -51,11 +51,11 @@ export async function createDocumentWithJob(
   return { documentId, jobId: job.id }
 }
 
-/** Reads a job's current status. */
-export async function jobStatus(pool: Pool, jobId: string) {
-  const { rows } = await pool.query<{ status: string }>(
-    'select status from jobs where id = $1',
+/** Reads a job's current status and failure reason. */
+export async function readJob(pool: Pool, jobId: string) {
+  const { rows } = await pool.query<{ status: string; error: string | null }>(
+    'select status, error from jobs where id = $1',
     [jobId]
   )
-  return rows[0]?.status
+  return rows[0]
 }
