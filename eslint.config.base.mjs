@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint'
 export default defineConfig(
   { ignores: ['dist/'] },
   js.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
+  tseslint.configs.strictTypeChecked,
   {
     languageOptions: {
       parserOptions: {
@@ -17,6 +17,16 @@ export default defineConfig(
       }
     },
     rules: {
+      // Arrow shorthand is the idiom for callbacks whose result nobody reads: () => controller.abort().
+      '@typescript-eslint/no-confusing-void-expression': [
+        'error',
+        { ignoreArrowShorthand: true }
+      ],
+      // Numbers format predictably in a template; the preset allows strings only.
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true }
+      ],
       // node:test's test() returns a promise that the test runner manages itself.
       '@typescript-eslint/no-floating-promises': [
         'error',
