@@ -20,6 +20,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 ## Code style
 
 - Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
+- Lint and compiler checks are strict by default. Relax a rule only when it flags idiomatic code rather than a real risk, in the shared config with a one-line reason; never rewrite idiomatic code just to satisfy a rule.
 - Keep TODOs short.
 - A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.

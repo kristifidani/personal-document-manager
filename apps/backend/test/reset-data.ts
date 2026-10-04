@@ -41,8 +41,10 @@ async function resetData() {
   // delete stored files; storage is flat, so only top-level files are touched
   const dir = resolve(STORAGE_DIR)
   const entries = await readdir(dir, { withFileTypes: true }).catch(
-    (err: NodeJS.ErrnoException) => {
-      if (err.code === 'ENOENT') return []
+    (err: unknown) => {
+      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+        return []
+      }
       throw err
     }
   )

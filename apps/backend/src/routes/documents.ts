@@ -96,7 +96,8 @@ const documents: FastifyPluginAsync = async (fastify) => {
           )
           return rows[0]
         })
-        return reply.code(201).send(document)
+        reply.code(201)
+        return document
       } catch (err) {
         // clean up: `id` is the on-disk name, so this covers every failure
         await fastify.storage.remove(id)

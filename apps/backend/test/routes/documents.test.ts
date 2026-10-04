@@ -98,13 +98,11 @@ test('POST /documents stores the file and enqueues a job, and GET /documents/:id
   assert.ok(existsSync(join(app.config.STORAGE_DIR, storagePath)))
 
   const { rows: jobs } = await app.pg.query<JobRow>(
-    'select * from jobs where document_id = $1',
+    'select job_type, status from jobs where document_id = $1',
     [body.id]
   )
 
-  assert.strictEqual(jobs.length, 1)
-  assert.strictEqual(jobs[0].job_type, 'extract')
-  assert.strictEqual(jobs[0].status, 'pending')
+  assert.deepStrictEqual(jobs, [{ job_type: 'extract', status: 'pending' }])
 
   // read it back
   const fetched = await app.inject({

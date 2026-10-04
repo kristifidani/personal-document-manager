@@ -9,5 +9,4 @@ coverage/
 apps/backend/storage/
 
 # editor
-!.vscode/extensions.json
 .DS_Store

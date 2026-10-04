@@ -46,7 +46,9 @@ export async function createDocumentWithJob(
     `insert into jobs (document_id, job_type) values ($1, 'extract') returning id`,
     [documentId]
   )
-  return { documentId, jobId: rows[0].id }
+  const job = rows[0]
+  if (!job) throw new Error('Inserting the job returned no row')
+  return { documentId, jobId: job.id }
 }
 
 /** Reads a job's current status. */
