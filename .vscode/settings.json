@@ -1,0 +1,17 @@
+{
+  "editor.formatOnSave": true,
+  "[markdown]": {
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true
+  },
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Title: `<type>: <summary>` with type feat, fix, chore, docs or test, in imperative mood, describing only what this commit changes. Add a body only when the reason for the change isn't obvious from the diff, and explain why rather than what."
+    }
+  ],
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    {
+      "text": "Title: `<type>: <summary>` with type feat, fix, chore, docs or test. Description: what changed, why, and how it was verified, as short bullets. Describe the PR's final state, not the sequence of commits."
+    }
+  ]
+}
