@@ -9,6 +9,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - There is no fixed roadmap. After a ticket's PR is merged, recommend what to do next and let the user decide the next step and its size.
 - Branch per ticket off `main`, open a PR, don't commit straight to `main`.
 - Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first — make the changes and summarize them; the user stages and commits.
+- Treat a review comment as a claim to verify, not an instruction: say which comments you agree with and why before changing code.
 
 ## Decision-making rules
 
@@ -20,13 +21,14 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 - Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
 - Keep TODOs short.
+- A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Keep dependencies minimal — prefer the standard library where reasonable.
 - Before finishing a ticket, check for redundant or unused code/dependencies and anything added ahead of need; keep things simple.
 
 ## Testing
 
-- Integration tests cover one component alone (backend or worker) on `node:test`, against the real database and storage directory; no mocks. The backend is tested through HTTP, the worker through its exported functions. A test never calls into another app: it inserts the rows that app would have written.
+- Integration tests cover one component alone (backend or worker) on `node:test`, against the real database and storage directory; no mocks. Backend routes are tested through HTTP (`app.inject`); plugins, the schema and the worker are tested through their own interface. A test never calls into another app: it inserts the rows that app would have written.
 - A flow that spans components (upload, then the worker processes the job) belongs in an end-to-end test, not in either app's integration tests. MVP: no end-to-end suite yet; add it when the worker first produces output the backend serves.
 - Every new or changed behaviour ships with a test in the same PR, including its failure paths. A bug fix ships with a test that fails without the fix.
 - One test per behaviour, named after it. When a change adds an effect to an existing action, extend that action's test instead of adding a second one.
@@ -44,7 +46,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Lowercase keywords; snake_case names; plural table names.
 - Enforce invariants in the schema (`not null`, `check`, foreign keys with an explicit `on delete`), not only in code.
 - Migrations are plain SQL with a working down. Never edit a merged migration; add a new one.
-- Add an index when a query filters or sorts on a column at scale, with a comment naming that query.
+- A query that filters or sorts a table that grows gets an index, with a comment naming that query.
 
 ## Security and privacy
 
