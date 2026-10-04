@@ -22,3 +22,6 @@ GET {{baseUrl}}/documents
 
 ### Get the document from the last upload request
 GET {{baseUrl}}/documents/{{upload.response.body.$.id}}
+
+### Get a document that does not exist, to see an error response
+GET {{baseUrl}}/documents/00000000-0000-4000-8000-000000000000
