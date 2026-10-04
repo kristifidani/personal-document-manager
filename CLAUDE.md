@@ -51,6 +51,7 @@ Each fact has exactly one home; don't restate it elsewhere.
 - **Root README**: product, architecture and major decisions — high level only.
 - **App READMEs**: how a human sets up, runs and manually tests that app, and how it works end to end (the flow between its modules and what happens on failure); `package.json` is the command reference.
 - **CLAUDE.md**: rules an agent can't infer from the code.
+- **`.github/copilot-instructions.md`**: what Copilot code review prioritises and skips; it points here for conventions.
 - **PRs and git history**: progress, status, changes and bug write-ups. Docs are not a changelog or roadmap.
 
 A change that makes a comment or doc wrong updates it in the same PR.
@@ -58,4 +59,4 @@ A change that makes a comment or doc wrong updates it in the same PR.
 ## Repo etiquette
 
 - Branches: `feature/<short-name>`, `fix/<short-name>`, `chore/<short-name>`.
-- Commits: imperative mood, explain _why_ over _what_ in the body when it's not obvious from the diff.
+- Commits and PR titles: `<type>: <summary>` with type `feat`, `fix`, `chore`, `docs` or `test`; imperative mood, explain _why_ over _what_ in the body when it's not obvious from the diff.
