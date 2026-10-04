@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import createError from '@fastify/error'
 import { FastifyPluginAsync } from 'fastify'
 
 /** MVP: PDFs and common image formats only; extend when document processing supports more. */
@@ -8,10 +9,27 @@ const ACCEPTED_MIME_TYPES = new Set([
   'image/png'
 ])
 
-/** Creates an error that Fastify's default handler sends with `statusCode`. */
-function httpError(statusCode: number, message: string) {
-  return Object.assign(new Error(message), { statusCode })
-}
+/** Errors these routes throw on purpose; `src/plugins/error-handler.ts` sends them to the client. */
+const NoFileProvidedError = createError(
+  'NO_FILE_PROVIDED',
+  'No file provided',
+  400
+)
+const UnsupportedMimeTypeError = createError(
+  'UNSUPPORTED_MIME_TYPE',
+  'Unsupported mime type: %s',
+  415
+)
+const FileTooLargeError = createError(
+  'FILE_TOO_LARGE',
+  'File exceeds maximum allowed size',
+  413
+)
+const DocumentNotFoundError = createError(
+  'DOCUMENT_NOT_FOUND',
+  'Document not found',
+  404
+)
 
 /** `documents` columns returned to the client. */
 interface DocumentRow {
@@ -61,13 +79,13 @@ const documents: FastifyPluginAsync = async (fastify) => {
       // read the first file part; the iterator must be consumed only once
       const parts = request.files()
       const first = await parts.next()
-      if (first.done) throw httpError(400, 'No file provided')
+      if (first.done) throw new NoFileProvidedError()
       const file = first.value
 
       // validate type; drain the rejected stream so the request can finish
       if (!ACCEPTED_MIME_TYPES.has(file.mimetype)) {
         file.file.resume()
-        throw httpError(415, `Unsupported mime type: ${file.mimetype}`)
+        throw new UnsupportedMimeTypeError(file.mimetype)
       }
 
       const id = randomUUID()
@@ -77,9 +95,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
         const { path, sizeBytes } = await fastify.storage.save(id, file.file)
 
         // enforce limits: size, then a second part, which the parser rejects with a 413
-        if (file.file.truncated) {
-          throw httpError(413, 'File exceeds maximum allowed size')
-        }
+        if (file.file.truncated) throw new FileTooLargeError()
         await parts.next()
 
         // persist document and job atomically
@@ -149,7 +165,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
         `select ${DOCUMENT_COLUMNS} from documents where id = $1`,
         [request.params.id]
       )
-      if (rows.length === 0) throw httpError(404, 'Document not found')
+      if (rows.length === 0) throw new DocumentNotFoundError()
       return rows[0]
     }
   )
