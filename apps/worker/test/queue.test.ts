@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { claimJob, finishJob } from '../src/queue'
-import { connect, createDocumentWithJob, jobStatus } from './helper'
+import { connect, createDocumentWithJob, readJob } from './helper'
 
 test('returns undefined when no job is pending', async (t) => {
   const { pool } = connect(t)
@@ -24,7 +24,7 @@ test('claims the oldest pending job first', async (t) => {
     job_type: 'extract'
   })
   assert.strictEqual(second?.id, newer.jobId)
-  assert.strictEqual(await jobStatus(pool, older.jobId), 'processing')
+  assert.strictEqual((await readJob(pool, older.jobId))?.status, 'processing')
 })
 
 test('concurrent claims hand a job to only one claimer', async (t) => {
@@ -41,14 +41,32 @@ test('concurrent claims hand a job to only one claimer', async (t) => {
   )
 })
 
-test('finishJob records the outcome', async (t) => {
+test('finishJob without an error records done', async (t) => {
   const { pool, config } = connect(t)
   const { jobId } = await createDocumentWithJob(pool, config, {
     withFile: false
   })
   await claimJob(pool)
 
-  await finishJob(pool, jobId, 'failed')
+  await finishJob(pool, jobId)
 
-  assert.strictEqual(await jobStatus(pool, jobId), 'failed')
+  assert.deepStrictEqual(await readJob(pool, jobId), {
+    status: 'done',
+    error: null
+  })
+})
+
+test('finishJob with an error records failed and the reason', async (t) => {
+  const { pool, config } = connect(t)
+  const { jobId } = await createDocumentWithJob(pool, config, {
+    withFile: false
+  })
+  await claimJob(pool)
+
+  await finishJob(pool, jobId, 'some reason')
+
+  assert.deepStrictEqual(await readJob(pool, jobId), {
+    status: 'failed',
+    error: 'some reason'
+  })
 })

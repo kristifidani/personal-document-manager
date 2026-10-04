@@ -37,7 +37,7 @@ When something goes wrong:
 
 | Situation                                        | What the worker does                                                                         |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| A handler throws (missing file, unknown type, …) | Marks the job `failed`, logs the error and moves on.                                         |
+| A handler throws (missing file, unknown type, …) | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.     |
 | The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back. |
 | Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                      |
 | The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).   |
@@ -53,17 +53,17 @@ docker compose -f ../../infra/db/docker-compose.yml exec postgres psql -U postgr
 Watch the queue with:
 
 ```sql
-select id, document_id, job_type, status from jobs order by created_at;
+select id, document_id, job_type, status, error from jobs order by created_at;
 ```
 
-| Scenario      | Do                                                                                                                            | Expect                                                                       |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Processed     | Upload a file with the backend's [`requests.http`](../backend/requests.http).                                                 | Log `Job … (extract) done`; status `done`.                                   |
-| Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                          |
-| Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `… failed: Error: ENOENT …`; status `failed`; the worker keeps polling.  |
-| Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`. |
-| Re-run a job  | `update jobs set status = 'pending' where id = '<job id>';`                                                                   | The worker processes it again.                                               |
-| Database down | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`. |
-| Shutdown      | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                        |
+| Scenario      | Do                                                                                                                            | Expect                                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Processed     | Upload a file with the backend's [`requests.http`](../backend/requests.http).                                                 | Log `Job … (extract) done`; status `done`.                                                                |
+| Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                                                       |
+| Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `… failed: Error: ENOENT …`; status `failed`, `error` starts with `ENOENT`; the worker keeps polling. |
+| Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`.                              |
+| Re-run a job  | `update jobs set status = 'pending', error = null where id = '<job id>';`                                                     | The worker processes it again.                                                                            |
+| Database down | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`.                              |
+| Shutdown      | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                                                     |
 
 For a clean slate, `npm run data:reset` wipes all data and stored files.

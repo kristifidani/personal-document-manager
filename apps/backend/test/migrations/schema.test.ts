@@ -91,6 +91,7 @@ test('jobs table has the expected columns, types and defaults', async (t) => {
     document_id: 'uuid',
     job_type: 'text',
     status: 'text',
+    error: 'text',
     created_at: 'timestamp with time zone'
   })
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
@@ -107,6 +108,20 @@ test('jobs.status rejects values outside the known set', async (t) => {
     app.pg.query(
       'insert into jobs (document_id, job_type, status) values ($1, $2, $3)',
       [documentId, 'extract', 'bogus']
+    ),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+test('jobs.error is rejected on a job that has not failed', async (t) => {
+  const app = await build(t)
+
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    app.pg.query(
+      'insert into jobs (document_id, job_type, error) values ($1, $2, $3)',
+      [documentId, 'extract', 'some reason']
     ),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )

@@ -27,6 +27,10 @@ interface DocumentResponse {
   created_at: string
 }
 
+interface ErrorResponse {
+  code: string
+}
+
 interface JobRow {
   job_type: string
   status: string
@@ -119,6 +123,7 @@ test('POST /documents without a file returns 400', async (t) => {
   const res = await postDocuments(app)
 
   assert.strictEqual(res.statusCode, 400)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'NO_FILE_PROVIDED')
 })
 
 test('POST /documents with an unsupported mime type returns 415 and creates nothing', async (t) => {
@@ -132,6 +137,7 @@ test('POST /documents with an unsupported mime type returns 415 and creates noth
   })
 
   assert.strictEqual(res.statusCode, 415)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'UNSUPPORTED_MIME_TYPE')
   // the row is inserted only after the file is saved, so no save means no row
   assert.strictEqual(savedPath(), undefined)
 })
@@ -146,6 +152,7 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
   )
 
   assert.strictEqual(res.statusCode, 413)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'FILE_TOO_LARGE')
   const path = savedPath()
   assert.ok(path, 'expected storage.save to have been called')
   const { rows } = await app.pg.query(
@@ -163,6 +170,8 @@ test('POST /documents with two file parts rejects and cleans up the first', asyn
   const res = await postDocuments(app, pdf('one.pdf'), pdf('two.pdf'))
 
   assert.strictEqual(res.statusCode, 413)
+  // raised by `@fastify/multipart`, not by the route
+  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_FILES_LIMIT')
   const path = savedPath()
   assert.ok(path, 'expected storage.save to have been called')
   const { rows } = await app.pg.query(
@@ -199,6 +208,10 @@ test('GET /documents/:id for an unknown id returns 404', async (t) => {
   })
 
   assert.strictEqual(res.statusCode, 404)
+  assert.deepStrictEqual(res.json(), {
+    code: 'DOCUMENT_NOT_FOUND',
+    message: 'Document not found'
+  })
 })
 
 test('GET /documents/:id with a malformed id returns 400', async (t) => {
@@ -207,4 +220,5 @@ test('GET /documents/:id with a malformed id returns 400', async (t) => {
   const res = await app.inject({ method: 'GET', url: '/documents/not-a-uuid' })
 
   assert.strictEqual(res.statusCode, 400)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
 })

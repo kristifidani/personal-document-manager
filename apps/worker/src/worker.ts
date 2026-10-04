@@ -30,7 +30,7 @@ export async function pollJobs(
 }
 
 /**
- * Claims one job, runs its handler and records `done` or `failed`.
+ * Claims one job, runs its handler and records `done`, or `failed` with the thrown error's message.
  * @returns whether a job was claimed.
  * @throws when claiming or recording fails; a handler error only fails the job.
  */
@@ -39,18 +39,17 @@ export async function runOnce(pool: Pool, config: Config): Promise<boolean> {
   if (!job) return false
 
   // run the handler
-  let status: 'done' | 'failed'
+  let error: string | undefined
   try {
     await handleJob(pool, config, job)
-    status = 'done'
   } catch (err) {
-    // MVP: the error is only logged; `jobs` has no error column yet.
-    status = 'failed'
+    // the row keeps only the message; the log has the stack and the `cause` chain
+    error = err instanceof Error ? err.message : String(err)
     console.error(`Job ${job.id} (${job.job_type}) failed:`, err)
   }
 
   // record the outcome
-  await finishJob(pool, job.id, status)
-  if (status === 'done') console.log(`Job ${job.id} (${job.job_type}) done`)
+  await finishJob(pool, job.id, error)
+  if (error === undefined) console.log(`Job ${job.id} (${job.job_type}) done`)
   return true
 }
