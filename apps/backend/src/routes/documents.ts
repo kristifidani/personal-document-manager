@@ -57,6 +57,29 @@ const documentSchema = {
   required: ['id', 'filename', 'mime_type', 'size_bytes', 'created_at']
 } as const
 
+/** `document_pages` columns returned to the client. */
+interface PageRow {
+  page_number: number
+  text: string
+}
+
+/** JSON response schema for one `PageRow`. */
+const pageSchema = {
+  type: 'object',
+  properties: {
+    page_number: { type: 'number' },
+    text: { type: 'string' }
+  },
+  required: ['page_number', 'text']
+} as const
+
+/** Params schema for `/documents/:id` routes: rejects malformed ids before they reach Postgres, which would fail the uuid cast with a 500. */
+const idParamsSchema = {
+  type: 'object',
+  properties: { id: { type: 'string', format: 'uuid' } },
+  required: ['id']
+} as const
+
 /**
  * `/documents` routes.
  *
@@ -151,12 +174,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
     '/documents/:id',
     {
       schema: {
-        // reject malformed ids before they reach Postgres, which would fail the uuid cast with a 500
-        params: {
-          type: 'object',
-          properties: { id: { type: 'string', format: 'uuid' } },
-          required: ['id']
-        },
+        params: idParamsSchema,
         response: { 200: documentSchema }
       }
     },
@@ -167,6 +185,36 @@ const documents: FastifyPluginAsync = async (fastify) => {
       )
       if (rows.length === 0) throw new DocumentNotFoundError()
       return rows[0]
+    }
+  )
+
+  /**
+   * `GET /documents/:id/pages`: returns the document's extracted text, one entry per page in page order, or an empty array when none is stored.
+   *
+   * @throws 400 `id` is not a UUID · 404 no document with that id
+   */
+  fastify.get<{ Params: { id: string } }>(
+    '/documents/:id/pages',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: { 200: { type: 'array', items: pageSchema } }
+      }
+    },
+    async (request) => {
+      // check the document exists, so an unknown id is a 404, not an empty list
+      const { rows: documents } = await fastify.pg.query(
+        'select id from documents where id = $1',
+        [request.params.id]
+      )
+      if (documents.length === 0) throw new DocumentNotFoundError()
+
+      // load its pages
+      const { rows } = await fastify.pg.query<PageRow>(
+        'select page_number, text from document_pages where document_id = $1 order by page_number',
+        [request.params.id]
+      )
+      return rows
     }
   )
 }

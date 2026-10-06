@@ -222,3 +222,66 @@ test('GET /documents/:id with a malformed id returns 400', async (t) => {
   assert.strictEqual(res.statusCode, 400)
   assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
 })
+
+test('GET /documents/:id/pages returns the saved pages in page order', async (t) => {
+  const app = await build(t)
+  const document = (
+    await postDocuments(app, pdf('contract.pdf'))
+  ).json<DocumentResponse>()
+  // the rows the worker's extract job saves, inserted out of order
+  await app.pg.query(
+    `insert into document_pages (document_id, page_number, text)
+     values ($1, 2, 'Second page'), ($1, 1, 'First page')`,
+    [document.id]
+  )
+
+  const res = await app.inject({
+    method: 'GET',
+    url: `/documents/${document.id}/pages`
+  })
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.deepStrictEqual(res.json(), [
+    { page_number: 1, text: 'First page' },
+    { page_number: 2, text: 'Second page' }
+  ])
+})
+
+test('GET /documents/:id/pages returns an empty list before any text is saved', async (t) => {
+  const app = await build(t)
+  const document = (
+    await postDocuments(app, pdf('new.pdf'))
+  ).json<DocumentResponse>()
+
+  const res = await app.inject({
+    method: 'GET',
+    url: `/documents/${document.id}/pages`
+  })
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.deepStrictEqual(res.json(), [])
+})
+
+test('GET /documents/:id/pages for an unknown id returns 404', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'GET',
+    url: `/documents/${randomUUID()}/pages`
+  })
+
+  assert.strictEqual(res.statusCode, 404)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'DOCUMENT_NOT_FOUND')
+})
+
+test('GET /documents/:id/pages with a malformed id returns 400', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/documents/not-a-uuid/pages'
+  })
+
+  assert.strictEqual(res.statusCode, 400)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
+})
