@@ -27,7 +27,7 @@ async function extract(pool: Pool, config: Config, job: Job) {
 
   if (document.mime_type !== 'application/pdf') return
 
-  // read the text layer, one string per page; the parser's messages can quote values from the file, so they stay in `cause`
+  // read the text layer, one string per page; the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`
   const { text: pages } = await extractText(new Uint8Array(file)).catch(
     (err: unknown) => {
       throw new Error('Could not read the PDF text layer', { cause: err })
