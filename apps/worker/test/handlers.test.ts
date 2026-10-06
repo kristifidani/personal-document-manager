@@ -37,8 +37,13 @@ test('extract replaces the saved pages when it runs again', async (t) => {
     content: pdf(['Only page']),
     mimeType: 'application/pdf'
   })
+  // pages from an earlier run, one more than the file has now
+  await pool.query(
+    `insert into document_pages (document_id, page_number, text)
+     values ($1, 1, 'Old page'), ($1, 2, 'Old page')`,
+    [documentId]
+  )
 
-  await extract(pool, config, documentId)
   await extract(pool, config, documentId)
 
   assert.deepStrictEqual(await readPages(pool, documentId), [
@@ -65,8 +70,10 @@ test('extract rejects a file that is not a valid PDF', async (t) => {
     mimeType: 'application/pdf'
   })
 
-  await assert.rejects(extract(pool, config, documentId), {
-    name: 'InvalidPDFException'
+  await assert.rejects(extract(pool, config, documentId), (err: Error) => {
+    assert.strictEqual(err.message, 'Could not read the PDF text layer')
+    assert.strictEqual((err.cause as Error).name, 'InvalidPDFException')
+    return true
   })
 })
 

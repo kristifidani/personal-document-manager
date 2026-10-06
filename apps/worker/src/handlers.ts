@@ -27,8 +27,12 @@ async function extract(pool: Pool, config: Config, job: Job) {
 
   if (document.mime_type !== 'application/pdf') return
 
-  // read the text layer, one string per page
-  const { text: pages } = await extractText(new Uint8Array(file))
+  // read the text layer, one string per page; the parser's messages can quote values from the file, so they stay in `cause`
+  const { text: pages } = await extractText(new Uint8Array(file)).catch(
+    (err: unknown) => {
+      throw new Error('Could not read the PDF text layer', { cause: err })
+    }
+  )
 
   // replace the pages in one transaction, so a re-run never duplicates them
   const client = await pool.connect()
