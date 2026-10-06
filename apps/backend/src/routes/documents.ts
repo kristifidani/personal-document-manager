@@ -189,7 +189,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   )
 
   /**
-   * `GET /documents/:id/pages`: returns the document's extracted text, one entry per page in page order. Empty until the worker has saved text, and for documents it can't read yet (images, scanned PDFs).
+   * `GET /documents/:id/pages`: returns the document's extracted text, one entry per page in page order, or an empty array when none is stored.
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */
