@@ -154,7 +154,7 @@ test('jobs.document_id requires an existing document', async (t) => {
   )
 })
 
-test('deleting a document cascades to its jobs', async (t) => {
+test('deleting a document cascades to its jobs and pages', async (t) => {
   const app = await build(t)
 
   const documentId = await insertDocument(app)
@@ -164,6 +164,10 @@ test('deleting a document cascades to its jobs', async (t) => {
     [documentId, 'extract']
   )
   const jobId = jobRows[0]?.id
+  await app.pg.query(
+    'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
+    [documentId, 1, 'page text']
+  )
 
   await app.pg.query('delete from documents where id = $1', [documentId])
 
@@ -172,6 +176,11 @@ test('deleting a document cascades to its jobs', async (t) => {
     [jobId]
   )
   assert.strictEqual(remainingJobs.length, 0)
+  const { rows: remainingPages } = await app.pg.query(
+    'select page_number from document_pages where document_id = $1',
+    [documentId]
+  )
+  assert.strictEqual(remainingPages.length, 0)
 })
 
 test('jobs has an index on (status, created_at) for claiming pending jobs', async (t) => {
@@ -184,4 +193,32 @@ test('jobs has an index on (status, created_at) for claiming pending jobs', asyn
 
   assert.strictEqual(rows.length, 1)
   assert.match(rows[0]?.indexdef ?? '', /\(status, created_at\)/)
+})
+
+test('document_pages table has the expected columns and types', async (t) => {
+  const app = await build(t)
+  const columns = await columnsOf(app, 'document_pages')
+
+  assertColumnTypes(columns, {
+    document_id: 'uuid',
+    page_number: 'integer',
+    text: 'text'
+  })
+  for (const column of columns.values()) {
+    assert.strictEqual(column.is_nullable, 'NO', column.column_name)
+  }
+})
+
+test('document_pages.page_number starts at 1', async (t) => {
+  const app = await build(t)
+
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    app.pg.query(
+      'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
+      [documentId, 0, 'page text']
+    ),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
 })

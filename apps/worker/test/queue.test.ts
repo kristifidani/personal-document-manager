@@ -12,8 +12,8 @@ test('returns undefined when no job is pending', async (t) => {
 
 test('claims the oldest pending job first', async (t) => {
   const { pool, config } = connect(t)
-  const older = await createDocumentWithJob(pool, config, { withFile: false })
-  const newer = await createDocumentWithJob(pool, config, { withFile: false })
+  const older = await createDocumentWithJob(pool, config, null)
+  const newer = await createDocumentWithJob(pool, config, null)
 
   const first = await claimJob(pool)
   const second = await claimJob(pool)
@@ -29,9 +29,7 @@ test('claims the oldest pending job first', async (t) => {
 
 test('concurrent claims hand a job to only one claimer', async (t) => {
   const { pool, config } = connect(t)
-  const { jobId } = await createDocumentWithJob(pool, config, {
-    withFile: false
-  })
+  const { jobId } = await createDocumentWithJob(pool, config, null)
 
   const claims = await Promise.all([claimJob(pool), claimJob(pool)])
 
@@ -43,9 +41,7 @@ test('concurrent claims hand a job to only one claimer', async (t) => {
 
 test('finishJob without an error records done', async (t) => {
   const { pool, config } = connect(t)
-  const { jobId } = await createDocumentWithJob(pool, config, {
-    withFile: false
-  })
+  const { jobId } = await createDocumentWithJob(pool, config, null)
   await claimJob(pool)
 
   await finishJob(pool, jobId)
@@ -58,9 +54,7 @@ test('finishJob without an error records done', async (t) => {
 
 test('finishJob with an error records failed and the reason', async (t) => {
   const { pool, config } = connect(t)
-  const { jobId } = await createDocumentWithJob(pool, config, {
-    withFile: false
-  })
+  const { jobId } = await createDocumentWithJob(pool, config, null)
   await claimJob(pool)
 
   await finishJob(pool, jobId, 'some reason')

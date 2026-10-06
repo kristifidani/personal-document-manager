@@ -5,7 +5,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import type { Pool } from 'pg'
 import type { Config } from '../src/env'
 import { pollJobs, runOnce } from '../src/worker'
-import { connect, createDocumentWithJob, readJob } from './helper'
+import { connect, createDocumentWithJob, readJob, SAMPLE_PDF } from './helper'
 
 /** Runs `pollJobs` for 100 ms, far below `POLL_INTERVAL_MS`, then aborts it. @returns how long it took to stop. */
 async function pollBriefly(pool: Pool, config: Config) {
@@ -26,9 +26,7 @@ test('returns false when no job is pending', async (t) => {
 
 test('marks a job done when its handler succeeds', async (t) => {
   const { pool, config } = connect(t)
-  const { jobId } = await createDocumentWithJob(pool, config, {
-    withFile: true
-  })
+  const { jobId } = await createDocumentWithJob(pool, config, SAMPLE_PDF)
 
   assert.strictEqual(await runOnce(pool, config), true)
   assert.strictEqual((await readJob(pool, jobId))?.status, 'done')
@@ -36,9 +34,7 @@ test('marks a job done when its handler succeeds', async (t) => {
 
 test('marks a job failed with the reason when its handler throws', async (t) => {
   const { pool, config } = connect(t)
-  const { jobId } = await createDocumentWithJob(pool, config, {
-    withFile: false
-  })
+  const { jobId } = await createDocumentWithJob(pool, config, null)
 
   assert.strictEqual(await runOnce(pool, config), true)
   const job = await readJob(pool, jobId)

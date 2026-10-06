@@ -1,21 +1,59 @@
-import { access } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
+import { extractText } from 'unpdf'
 import type { Config } from './env'
 import type { Job } from './queue'
 
-/** Checks that the document's file exists, resolving its path like the backend's `src/plugins/storage.ts`. */
+/**
+ * Saves the document's text, one `document_pages` row per page. Resolves the file's path like the backend's `src/plugins/storage.ts`.
+ *
+ * Reads only a PDF's text layer for now.
+ * TODO: OCR images and scanned PDFs (their pages come back empty).
+ */
 async function extract(pool: Pool, config: Config, job: Job) {
-  const { rows } = await pool.query<{ storage_path: string }>(
-    'select storage_path from documents where id = $1',
-    [job.document_id]
-  )
+  // load the document
+  const { rows } = await pool.query<{
+    storage_path: string
+    mime_type: string
+  }>('select storage_path, mime_type from documents where id = $1', [
+    job.document_id
+  ])
   const document = rows[0]
   if (!document) throw new Error(`Document ${job.document_id} not found`)
+  const file = await readFile(
+    join(resolve(config.STORAGE_DIR), document.storage_path)
+  )
 
-  await access(join(resolve(config.STORAGE_DIR), document.storage_path))
+  if (document.mime_type !== 'application/pdf') return
 
-  // TODO: extract the document's text.
+  // read the text layer, one string per page; the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`
+  const { text: pages } = await extractText(new Uint8Array(file)).catch(
+    (err: unknown) => {
+      throw new Error('Could not read the PDF text layer', { cause: err })
+    }
+  )
+
+  // replace the pages in one transaction, so a re-run never duplicates them
+  const client = await pool.connect()
+  try {
+    await client.query('begin')
+    await client.query('delete from document_pages where document_id = $1', [
+      job.document_id
+    ])
+    for (const [index, text] of pages.entries()) {
+      await client.query(
+        'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
+        [job.document_id, index + 1, text]
+      )
+    }
+    await client.query('commit')
+  } catch (err) {
+    await client.query('rollback')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 /**

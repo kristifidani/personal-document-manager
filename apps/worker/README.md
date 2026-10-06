@@ -56,9 +56,16 @@ Watch the queue with:
 select id, document_id, job_type, status, error from jobs order by created_at;
 ```
 
+And the extracted text with:
+
+```sql
+select document_id, page_number, left(text, 80) from document_pages order by document_id, page_number;
+```
+
 | Scenario      | Do                                                                                                                            | Expect                                                                                                    |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Processed     | Upload a file with the backend's [`requests.http`](../backend/requests.http).                                                 | Log `Job … (extract) done`; status `done`.                                                                |
+| Processed     | Upload the sample PDF with the backend's [`requests.http`](../backend/requests.http).                                         | Log `Job … (extract) done`; status `done`; one `document_pages` row per page.                             |
+| Image         | Upload a JPEG or PNG.                                                                                                         | Status `done`, but no `document_pages` rows: images aren't read yet.                                      |
 | Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                                                       |
 | Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `… failed: Error: ENOENT …`; status `failed`, `error` starts with `ENOENT`; the worker keeps polling. |
 | Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`.                              |
