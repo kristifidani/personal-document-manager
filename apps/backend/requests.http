@@ -17,6 +17,18 @@ Content-Type: application/pdf
 < ./sample.pdf
 --boundary--
 
+### Upload the bundled 2-page PDF with text; the worker saves one `document_pages` row per page (see apps/worker/README.md)
+# @name uploadTextPdf
+POST {{baseUrl}}/documents
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="text.pdf"
+Content-Type: application/pdf
+
+< ./samples/text.pdf
+--boundary--
+
 ### List documents, newest first
 GET {{baseUrl}}/documents
 
