@@ -1,0 +1,20 @@
+{
+  "name": "e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Personal Document Manager end-to-end tests (backend and worker as real processes)",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "npm run data:reset && node --test -r ts-node/register \"test/**/*.test.ts\"",
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip --directory ../..",
+    "data:reset": "npm run data:reset -w backend",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
+  }
+}
