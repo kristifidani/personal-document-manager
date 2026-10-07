@@ -14,6 +14,9 @@ const APPS_DIR = join(__dirname, '..', '..')
 /** What the started apps have printed, prefixed by app name; `waitFor` shows it on timeout. */
 const output: string[] = []
 
+/** Process groups of the apps not stopped yet. */
+const running = new Set<number>()
+
 /** Whether any process in the group led by `pid` is still running. */
 function groupAlive(pid: number) {
   try {
@@ -23,6 +26,14 @@ function groupAlive(pid: number) {
     return false
   }
 }
+
+// Ctrl+C reaches only the terminal's process group, not the apps', and skips `t.after`; exit instead, so the `exit` handler stops them
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => process.exit(1))
+}
+process.on('exit', () => {
+  for (const pid of running) if (groupAlive(pid)) process.kill(-pid, 'SIGTERM')
+})
 
 /**
  * Starts an app with its own `npm start`, as a person would, and stops it when the test ends. Each app loads its own `.env`; `env` overrides it.
@@ -38,6 +49,7 @@ function startApp(t: TestContext, name: string, env: Record<string, string>) {
   })
   const { pid } = child
   if (pid === undefined) throw new Error(`Could not start ${name}`)
+  running.add(pid)
 
   // keep the output for diagnosing a timeout
   const record = (chunk: Buffer) => output.push(`[${name}] ${chunk.toString()}`)
@@ -48,9 +60,9 @@ function startApp(t: TestContext, name: string, env: Record<string, string>) {
   )
 
   t.after(async () => {
-    if (!groupAlive(pid)) return
-    process.kill(-pid, 'SIGTERM')
+    if (groupAlive(pid)) process.kill(-pid, 'SIGTERM')
     while (groupAlive(pid)) await sleep(50)
+    running.delete(pid)
   })
 }
 
@@ -80,6 +92,9 @@ export async function waitFor<T>(
  * @returns the backend's base URL.
  */
 export async function startStack(t: TestContext) {
+  // a timeout error shows only this test's apps
+  output.length = 0
+
   // one storage directory for both apps, as the README's deployment assumes
   const storageDir = await mkdtemp(join(tmpdir(), 'pdm-e2e-'))
   const env = { PORT: String(PORT), STORAGE_DIR: storageDir }

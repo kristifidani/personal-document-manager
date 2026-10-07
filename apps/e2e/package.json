@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "npm run data:reset && node --test -r ts-node/register \"test/**/*.test.ts\"",
+    "test": "npm run data:reset && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

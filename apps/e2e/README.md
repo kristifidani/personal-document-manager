@@ -21,4 +21,4 @@ All scripts are in `package.json`.
 3. **Drives** the backend over HTTP only, as the frontend will, and polls until the worker's result shows up in the API.
 4. **Stops** both apps with SIGTERM and removes the storage directory.
 
-When a wait times out, the error includes everything both apps printed, so a failed job's error from the worker's log shows there. A port already in use shows up as the backend never answering.
+When a wait times out, the error includes everything both apps printed, so a failed job's error from the worker's log shows there. Port 3100 must be free: if another backend is listening there, the test talks to that one instead. Ctrl+C stops both apps too.
