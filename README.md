@@ -41,6 +41,7 @@ flowchart LR
 | Worker       | [`apps/worker`](apps/worker/README.md)   | Async pipeline: OCR/text extraction, classification and extraction via LLM, embeddings. |
 | Frontend     | `apps/frontend`                          | React + Vite UI.                                                                        |
 | Shared types | `packages/shared`                        | TypeScript types shared across the apps.                                                |
+| E2E tests    | [`apps/e2e`](apps/e2e/README.md)         | Runs the backend and worker as real processes and checks flows that span them.          |
 
 ### Decisions and why
 
@@ -69,3 +70,4 @@ Each app then documents its own setup in its README:
 
 - **Backend**: [apps/backend/README.md](apps/backend/README.md)
 - **Worker**: [apps/worker/README.md](apps/worker/README.md)
+- **End-to-end tests**: [apps/e2e/README.md](apps/e2e/README.md)
