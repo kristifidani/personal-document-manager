@@ -29,3 +29,14 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+  # Actions are pinned to commit SHAs, since CI holds a secret; this keeps the pins current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
