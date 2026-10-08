@@ -18,14 +18,7 @@ async function readPdf(apiKey: string, file: Buffer) {
     }
   )
   if (pages.some((text) => text.trim())) return pages
-
-  const scanned = await ocr(apiKey, file, 'application/pdf')
-  if (scanned.length !== pages.length) {
-    throw new Error(
-      `OCR returned ${scanned.length} pages, expected ${pages.length}`
-    )
-  }
-  return scanned
+  return ocr(apiKey, file, 'application/pdf', pages.length)
 }
 
 /**
@@ -54,7 +47,7 @@ async function extract(pool: Pool, config: Config, job: Job) {
       break
     case 'image/jpeg':
     case 'image/png':
-      pages = await ocr(config.ANTHROPIC_API_KEY, file, document.mime_type)
+      pages = await ocr(config.ANTHROPIC_API_KEY, file, document.mime_type, 1)
       break
     default:
       throw new Error(`Unsupported mime type: ${document.mime_type}`)
