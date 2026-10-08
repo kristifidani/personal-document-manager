@@ -5,10 +5,11 @@
 ### Health check
 GET {{baseUrl}}/health
 
-### Upload a document. To try another, change the `<` path and the part's Content-Type (paths are relative to this file):
-#   ./samples/text.pdf     application/pdf   2 pages with a text layer, read locally
-#   ./samples/scanned.pdf  application/pdf   2 scanned pages, no text layer: read with OCR (Claude)
-#   ./samples/image.png    image/png         a receipt as an image: read with OCR (Claude)
+### Upload a document. To try another sample (see samples/README.md), change the `<` path and the part's Content-Type:
+#   ../../samples/text.pdf      application/pdf
+#   ../../samples/scanned.pdf   application/pdf
+#   ../../samples/mixed.pdf     application/pdf
+#   ../../samples/photo.jpg     image/jpeg
 # @name upload
 POST {{baseUrl}}/documents
 Content-Type: multipart/form-data; boundary=boundary
@@ -17,7 +18,7 @@ Content-Type: multipart/form-data; boundary=boundary
 Content-Disposition: form-data; name="file"; filename="sample"
 Content-Type: application/pdf
 
-< ./samples/text.pdf
+< ../../samples/text.pdf
 --boundary--
 
 ### List documents, newest first

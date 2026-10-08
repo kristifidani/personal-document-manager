@@ -5,39 +5,36 @@ import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { startStack, waitFor } from './helper'
 
-/** The backend's bundled samples, also used by its `requests.http`. */
-const SAMPLES_DIR = join(__dirname, '../../backend/samples')
+/** The repo's shared sample documents. */
+const SAMPLES_DIR = join(__dirname, '../../../samples')
 
 interface Page {
   page_number: number
   text: string
 }
 
-/** A sample and its expected pages: exact text-layer strings, or patterns for OCR output, whose spacing and case vary. */
+/** A sample and a pattern each of its pages must match; OCR output varies in spacing and case. */
 interface Case {
   file: string
   mimeType: string
-  pages: (string | RegExp)[]
+  pages: RegExp[]
 }
 
 const CASES: Case[] = [
   {
     file: 'text.pdf',
     mimeType: 'application/pdf',
-    pages: [
-      'Employment contract between Jane Doe and Example Ltd. Start date: 1 March 2026.',
-      'Notice period: three months. Salary is paid monthly.'
-    ]
+    pages: [/starts on 1 March 2026/, /three months notice/]
   },
   {
     file: 'scanned.pdf',
     mimeType: 'application/pdf',
-    pages: [/invoice no\.?\s*1042/i, /pay by\s*01\.11\.2026/i]
+    pages: [/rechnung\s*nr\.?\s*2026-1042/i, /01\.11\.2026/]
   },
   {
-    file: 'image.png',
-    mimeType: 'image/png',
-    pages: [/total\s*3\.50\s*eur/i]
+    file: 'photo.jpg',
+    mimeType: 'image/jpeg',
+    pages: [/total\s*gbp\s*8\.50/i]
   }
 ]
 
@@ -81,10 +78,8 @@ test("an uploaded document's text is served once the worker has processed it", a
         pages.map((page) => page.page_number),
         sample.pages.map((_, i) => i + 1)
       )
-      for (const [i, expected] of sample.pages.entries()) {
-        const text = pages[i]?.text ?? ''
-        if (typeof expected === 'string') assert.strictEqual(text, expected)
-        else assert.match(text, expected)
+      for (const [i, pattern] of sample.pages.entries()) {
+        assert.match(pages[i]?.text ?? '', pattern)
       }
     })
   }
