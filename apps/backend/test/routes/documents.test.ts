@@ -143,24 +143,34 @@ test('POST /documents with an unsupported mime type returns 415 and creates noth
 })
 
 test('POST /documents with an oversized file returns 413 and cleans up', async (t) => {
-  const app = await build(t)
-  const savedPath = spyOnSave(app)
+  // each type's limit plus one byte: PDFs hit the parser's cap, images the route's lower limit
+  const files: FilePart[] = [
+    pdf('big.pdf', Buffer.alloc(10 * 1024 * 1024 + 1, 'a')),
+    {
+      filename: 'big.png',
+      mimeType: 'image/png',
+      content: Buffer.alloc(5 * 1024 * 1024 + 1, 'a')
+    }
+  ]
+  for (const file of files) {
+    await t.test(file.filename, async (t) => {
+      const app = await build(t)
+      const savedPath = spyOnSave(app)
 
-  const res = await postDocuments(
-    app,
-    pdf('big.pdf', Buffer.alloc(20 * 1024 * 1024 + 1, 'a'))
-  )
+      const res = await postDocuments(app, file)
 
-  assert.strictEqual(res.statusCode, 413)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'FILE_TOO_LARGE')
-  const path = savedPath()
-  assert.ok(path, 'expected storage.save to have been called')
-  const { rows } = await app.pg.query(
-    'select id from documents where storage_path = $1',
-    [path]
-  )
-  assert.strictEqual(rows.length, 0)
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+      assert.strictEqual(res.statusCode, 413)
+      assert.strictEqual(res.json<ErrorResponse>().code, 'FILE_TOO_LARGE')
+      const path = savedPath()
+      assert.ok(path, 'expected storage.save to have been called')
+      const { rows } = await app.pg.query(
+        'select id from documents where storage_path = $1',
+        [path]
+      )
+      assert.strictEqual(rows.length, 0)
+      assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+    })
+  }
 })
 
 test('POST /documents with two file parts rejects and cleans up the first', async (t) => {
