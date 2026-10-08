@@ -20,19 +20,9 @@ updates:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
 
-  - package-ecosystem: github-actions
-    directories: ['/', '/.github/actions/*']
-    schedule:
-      interval: monthly
-    cooldown:
-      default-days: 7
-    groups:
-      actions:
-        patterns: ['*']
-
   # Actions are pinned to commit SHAs, since CI holds a secret; this keeps the pins current.
   - package-ecosystem: github-actions
-    directory: /
+    directories: ['/', '/.github/actions/*']
     schedule:
       interval: monthly
     cooldown:
