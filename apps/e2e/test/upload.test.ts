@@ -5,23 +5,50 @@ import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { startStack, waitFor } from './helper'
 
-/** The backend's bundled 2-page PDF, also used by its `requests.http`. */
-const SAMPLE_PDF = join(__dirname, '../../backend/samples/text.pdf')
+/** The backend's bundled samples, also used by its `requests.http`. */
+const SAMPLES_DIR = join(__dirname, '../../backend/samples')
 
 interface Page {
   page_number: number
   text: string
 }
 
-test("an uploaded PDF's text is served once the worker has processed it", async (t) => {
-  const baseUrl = await startStack(t)
+/** One upload and what each of its pages must read: a string is the exact text layer, a pattern an OCR transcription, whose spacing and case can vary. */
+interface Case {
+  file: string
+  mimeType: string
+  pages: (string | RegExp)[]
+}
 
+const CASES: Case[] = [
+  {
+    file: 'text.pdf',
+    mimeType: 'application/pdf',
+    pages: [
+      'Employment contract between Jane Doe and Example Ltd. Start date: 1 March 2026.',
+      'Notice period: three months. Salary is paid monthly.'
+    ]
+  },
+  {
+    file: 'scanned.pdf',
+    mimeType: 'application/pdf',
+    pages: [/invoice no\.?\s*1042/i, /pay by\s*01\.11\.2026/i]
+  },
+  {
+    file: 'image.png',
+    mimeType: 'image/png',
+    pages: [/total\s*3\.50\s*eur/i]
+  }
+]
+
+/** Uploads a sample and waits until the worker has saved its pages. */
+async function uploadAndReadPages(baseUrl: string, { file, mimeType }: Case) {
   // upload
   const form = new FormData()
   form.append(
     'file',
-    new Blob([await readFile(SAMPLE_PDF)], { type: 'application/pdf' }),
-    'text.pdf'
+    new Blob([await readFile(join(SAMPLES_DIR, file))], { type: mimeType }),
+    file
   )
   const upload = await fetch(`${baseUrl}/documents`, {
     method: 'POST',
@@ -31,25 +58,34 @@ test("an uploaded PDF's text is served once the worker has processed it", async 
   const { id } = (await upload.json()) as { id: string }
 
   // read the pages back once the worker has saved them
-  const pages = await waitFor(
-    'the worker to save the pages',
+  return waitFor(
+    `the worker to save the pages of ${file}`,
     async () => {
       const res = await fetch(`${baseUrl}/documents/${id}/pages`)
       assert.strictEqual(res.status, 200)
       const body = (await res.json()) as Page[]
       return body.length > 0 ? body : undefined
     },
-    30_000
+    60_000
   )
+}
 
-  assert.deepStrictEqual(pages, [
-    {
-      page_number: 1,
-      text: 'Employment contract between Jane Doe and Example Ltd. Start date: 1 March 2026.'
-    },
-    {
-      page_number: 2,
-      text: 'Notice period: three months. Salary is paid monthly.'
-    }
-  ])
+test("an uploaded document's text is served once the worker has processed it", async (t) => {
+  const baseUrl = await startStack(t)
+
+  for (const sample of CASES) {
+    await t.test(sample.file, async () => {
+      const pages = await uploadAndReadPages(baseUrl, sample)
+
+      assert.deepStrictEqual(
+        pages.map((page) => page.page_number),
+        sample.pages.map((_, i) => i + 1)
+      )
+      for (const [i, expected] of sample.pages.entries()) {
+        const text = pages[i]?.text ?? ''
+        if (typeof expected === 'string') assert.strictEqual(text, expected)
+        else assert.match(text, expected)
+      }
+    })
+  }
 })
