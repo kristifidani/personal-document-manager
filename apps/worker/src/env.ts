@@ -4,14 +4,16 @@ import envSchema from 'env-schema'
 export interface Config {
   DATABASE_URL: string
   STORAGE_DIR: string
+  ANTHROPIC_API_KEY: string
 }
 
 const schema = {
   type: 'object',
-  required: ['DATABASE_URL', 'STORAGE_DIR'],
+  required: ['DATABASE_URL', 'STORAGE_DIR', 'ANTHROPIC_API_KEY'],
   properties: {
     DATABASE_URL: { type: 'string', minLength: 1 },
-    STORAGE_DIR: { type: 'string', minLength: 1 }
+    STORAGE_DIR: { type: 'string', minLength: 1 },
+    ANTHROPIC_API_KEY: { type: 'string', minLength: 1 }
   }
 }
 

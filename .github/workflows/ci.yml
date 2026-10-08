@@ -79,6 +79,8 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/personal_document_manager
       # Absolute, so the backend's reset (run from apps/backend) and the worker see the same directory.
       STORAGE_DIR: /tmp/pdm-storage
+      # The worker's OCR tests call the real Claude API (no mocks); the backend ignores it.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:
