@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -40,7 +40,7 @@ jobs:
       run:
         working-directory: apps/${{ matrix.app }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -80,7 +80,7 @@ jobs:
       # Absolute, so the backend's reset (run from apps/backend) and the worker see the same directory.
       STORAGE_DIR: /tmp/pdm-storage
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -91,3 +91,6 @@ jobs:
       - if: matrix.app == 'backend'
         run: npm run migrate:down -- "$(ls migrations/*.sql | wc -l)" && npm run migrate:up
       - run: npm test
+        env:
+          # Only this step of the apps that run OCR sees the key, not `npm ci` or the backend. It is both an Actions and a Dependabot secret: Dependabot PRs can't read Actions secrets.
+          ANTHROPIC_API_KEY: ${{ matrix.app != 'backend' && secrets.ANTHROPIC_API_KEY || '' }}

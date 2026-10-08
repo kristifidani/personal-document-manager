@@ -5,25 +5,16 @@
 ### Health check
 GET {{baseUrl}}/health
 
-### Upload a document; point the `<` line at any PDF, JPEG or PNG (path is relative to this file)
+### Upload a document. To try another, change the `<` path and the part's Content-Type (paths are relative to this file):
+#   ./samples/text.pdf     application/pdf   2 pages with a text layer, read locally
+#   ./samples/scanned.pdf  application/pdf   2 scanned pages, no text layer: read with OCR (Claude)
+#   ./samples/image.png    image/png         a receipt as an image: read with OCR (Claude)
 # @name upload
 POST {{baseUrl}}/documents
 Content-Type: multipart/form-data; boundary=boundary
 
 --boundary
-Content-Disposition: form-data; name="file"; filename="sample.pdf"
-Content-Type: application/pdf
-
-< ./sample.pdf
---boundary--
-
-### Upload the bundled 2-page PDF with text; the worker saves one `document_pages` row per page (see apps/worker/README.md)
-# @name uploadTextPdf
-POST {{baseUrl}}/documents
-Content-Type: multipart/form-data; boundary=boundary
-
---boundary
-Content-Disposition: form-data; name="file"; filename="text.pdf"
+Content-Disposition: form-data; name="file"; filename="sample"
 Content-Type: application/pdf
 
 < ./samples/text.pdf
@@ -35,8 +26,8 @@ GET {{baseUrl}}/documents
 ### Get the document from the last upload request
 GET {{baseUrl}}/documents/{{upload.response.body.$.id}}
 
-### Get the text of the PDF from the "Upload the bundled 2-page PDF" request, one entry per page; empty until the worker has run
-GET {{baseUrl}}/documents/{{uploadTextPdf.response.body.$.id}}/pages
+### Get the text of the document from the last upload request, one entry per page; empty until the worker has run
+GET {{baseUrl}}/documents/{{upload.response.body.$.id}}/pages
 
 ### Get a document that does not exist, to see an error response
 GET {{baseUrl}}/documents/00000000-0000-4000-8000-000000000000

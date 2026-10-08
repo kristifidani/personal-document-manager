@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
 import { FastifyPluginAsync } from 'fastify'
 
-/** MVP: PDFs and common image formats only; extend when document processing supports more. */
-const ACCEPTED_MIME_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png'
+/** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
+const MAX_SIZE_BYTES = new Map([
+  ['application/pdf', 10 * 1024 * 1024],
+  ['image/jpeg', 5 * 1024 * 1024],
+  ['image/png', 5 * 1024 * 1024]
 ])
 
 /** Errors these routes throw on purpose; `src/plugins/error-handler.ts` sends them to the client. */
@@ -106,7 +106,8 @@ const documents: FastifyPluginAsync = async (fastify) => {
       const file = first.value
 
       // validate type; drain the rejected stream so the request can finish
-      if (!ACCEPTED_MIME_TYPES.has(file.mimetype)) {
+      const maxSize = MAX_SIZE_BYTES.get(file.mimetype)
+      if (maxSize === undefined) {
         file.file.resume()
         throw new UnsupportedMimeTypeError(file.mimetype)
       }
@@ -118,7 +119,9 @@ const documents: FastifyPluginAsync = async (fastify) => {
         const { path, sizeBytes } = await fastify.storage.save(id, file.file)
 
         // enforce limits: size, then a second part, which the parser rejects with a 413
-        if (file.file.truncated) throw new FileTooLargeError()
+        if (file.file.truncated || sizeBytes > maxSize) {
+          throw new FileTooLargeError()
+        }
         await parts.next()
 
         // persist document and job atomically

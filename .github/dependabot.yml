@@ -20,6 +20,7 @@ updates:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
 
+  # Actions are pinned to commit SHAs, since CI holds a secret; this keeps the pins current.
   - package-ecosystem: github-actions
     directories: ['/', '/.github/actions/*']
     schedule:

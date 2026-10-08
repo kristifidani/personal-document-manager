@@ -7,7 +7,7 @@ The background worker of the [Personal Document Manager](../../README.md), built
 Requires Docker and the Node version in `package.json` (`engines`). Set up the [backend](../backend/README.md) first, including its database and migrations: the worker shares its database and storage. Then run everything from this directory.
 
 ```bash
-cp .env.example .env
+cp .env.example .env   # then set ANTHROPIC_API_KEY
 npm run dev
 ```
 
@@ -33,14 +33,23 @@ The worker is one loop:
 3. **Finish** by recording `done` or `failed` ([`runOnce`](src/worker.ts)).
 4. **Repeat** right away if there was a job. Otherwise sleep `POLL_INTERVAL_MS` and check again ([`pollJobs`](src/worker.ts)).
 
+The `extract` handler saves a document's text, one row per page in `document_pages`:
+
+- **PDF**: the text layer is read locally, and Claude never sees the file. Only when no page has a text layer (a scan) does the PDF go to Claude for OCR.
+- **Image** (JPEG, PNG): goes straight to Claude for OCR, as one page.
+
+OCR sends the file to Anthropic and costs money: about €0.015 per dense page.
+
 When something goes wrong:
 
-| Situation                                        | What the worker does                                                                         |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| A handler throws (missing file, unknown type, …) | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.     |
-| The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back. |
-| Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                      |
-| The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).   |
+| Situation                                        | What the worker does                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| A handler throws (missing file, unknown type, …) | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.               |
+| OCR fails (network, rate limit, bad key)         | The SDK retries network errors, 429 and 5xx twice; then the job is `failed` with `OCR request failed`. |
+| OCR stops early or returns the wrong page count  | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
+| The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
+| Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                                |
+| The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
 
 ## Testing by hand
 
@@ -65,7 +74,9 @@ select document_id, page_number, left(text, 80) from document_pages order by doc
 | Scenario      | Do                                                                                                                            | Expect                                                                                                    |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Processed     | Upload the sample PDF with the backend's [`requests.http`](../backend/requests.http).                                         | Log `Job … (extract) done`; status `done`; one `document_pages` row per page.                             |
-| Image         | Upload a JPEG or PNG.                                                                                                         | Status `done`, but no `document_pages` rows: images aren't read yet.                                      |
+| Image         | Upload `samples/image.png` with the backend's `requests.http`.                                                                | Status `done`; one `document_pages` row with the image's text.                                            |
+| Scanned PDF   | Upload `samples/scanned.pdf` (no text layer).                                                                                 | Status `done`; one row per page with the transcribed text.                                                |
+| OCR failure   | Set `ANTHROPIC_API_KEY=invalid` in `.env`, restart the worker, upload an image.                                               | Status `failed`, `error` is `OCR request failed`.                                                         |
 | Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                                                       |
 | Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `… failed: Error: ENOENT …`; status `failed`, `error` starts with `ENOENT`; the worker keeps polling. |
 | Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`.                              |

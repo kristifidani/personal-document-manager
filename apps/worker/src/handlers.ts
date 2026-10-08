@@ -3,13 +3,27 @@ import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
 import { extractText } from 'unpdf'
 import type { Config } from './env'
+import { ocr } from './ocr'
 import type { Job } from './queue'
 
 /**
+ * Reads a PDF's text layer locally, one string per page, and OCRs the PDF only when no page has one (a scan).
+ * MVP: a mixed PDF keeps its scanned pages empty, and a scan with a text watermark on every page skips OCR.
+ */
+async function readPdf(apiKey: string, file: Buffer) {
+  // the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`
+  const { text: pages } = await extractText(new Uint8Array(file)).catch(
+    (err: unknown) => {
+      throw new Error('Could not read the PDF text layer', { cause: err })
+    }
+  )
+  if (pages.some((text) => text.trim())) return pages
+  return ocr(apiKey, file, 'application/pdf', pages.length)
+}
+
+/**
  * Saves the document's text, one `document_pages` row per page. Resolves the file's path like the backend's `src/plugins/storage.ts`.
- *
- * Reads only a PDF's text layer for now.
- * TODO: OCR images and scanned PDFs (their pages come back empty).
+ * PDFs go through `readPdf`, images straight to OCR.
  */
 async function extract(pool: Pool, config: Config, job: Job) {
   // load the document
@@ -25,14 +39,19 @@ async function extract(pool: Pool, config: Config, job: Job) {
     join(resolve(config.STORAGE_DIR), document.storage_path)
   )
 
-  if (document.mime_type !== 'application/pdf') return
-
-  // read the text layer, one string per page; the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`
-  const { text: pages } = await extractText(new Uint8Array(file)).catch(
-    (err: unknown) => {
-      throw new Error('Could not read the PDF text layer', { cause: err })
-    }
-  )
+  // read the text, one string per page
+  let pages: string[]
+  switch (document.mime_type) {
+    case 'application/pdf':
+      pages = await readPdf(config.ANTHROPIC_API_KEY, file)
+      break
+    case 'image/jpeg':
+    case 'image/png':
+      pages = await ocr(config.ANTHROPIC_API_KEY, file, document.mime_type, 1)
+      break
+    default:
+      throw new Error(`Unsupported mime type: ${document.mime_type}`)
+  }
 
   // replace the pages in one transaction, so a re-run never duplicates them
   const client = await pool.connect()

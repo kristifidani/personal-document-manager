@@ -1,12 +1,10 @@
 name: Setup
 description: Set up Node.js and install every workspace's dependencies from the root lockfile
 
-# TODO: pin actions to commit SHAs once CI uses secrets or a third-party action.
-
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v7
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
         cache: npm

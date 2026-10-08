@@ -2,10 +2,19 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
+import Anthropic from '@anthropic-ai/sdk'
 import type { Pool } from 'pg'
 import type { Config } from '../src/env'
 import { handleJob } from '../src/handlers'
-import { connect, createDocument, pdf, readPages } from './helper'
+import {
+  SCANNED_TEXT,
+  connect,
+  createDocument,
+  pdf,
+  png,
+  readPages,
+  scan
+} from './helper'
 
 /** Runs the `extract` handler for a document. */
 function extract(pool: Pool, config: Config, documentId: string) {
@@ -51,16 +60,77 @@ test('extract replaces the saved pages when it runs again', async (t) => {
   ])
 })
 
-test('extract saves no pages for an image', async (t) => {
+test('extract reads an image with OCR', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, {
-    content: Buffer.from('not really a png'),
+    content: png(scan(SCANNED_TEXT)),
     mimeType: 'image/png'
   })
 
   await extract(pool, config, documentId)
 
-  assert.deepStrictEqual(await readPages(pool, documentId), [])
+  const pages = await readPages(pool, documentId)
+  assert.strictEqual(pages.length, 1)
+  assert.match(pages[0]?.text ?? '', /HELLO\s+WORLD/i)
+})
+
+test('extract reads a scanned PDF with OCR', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: pdf([scan(SCANNED_TEXT)]),
+    mimeType: 'application/pdf'
+  })
+
+  await extract(pool, config, documentId)
+
+  const pages = await readPages(pool, documentId)
+  assert.strictEqual(pages.length, 1)
+  assert.match(pages[0]?.text ?? '', /HELLO\s+WORLD/i)
+})
+
+test('extract never sends a PDF with a text layer to OCR', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: pdf(['First page', scan(SCANNED_TEXT)]),
+    mimeType: 'application/pdf'
+  })
+
+  // an invalid key fails any OCR request, so success proves none was made
+  await extract(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId)
+
+  assert.deepStrictEqual(await readPages(pool, documentId), [
+    { page_number: 1, text: 'First page' },
+    { page_number: 2, text: '' }
+  ])
+})
+
+test('extract rejects when the OCR request fails', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: png(scan(SCANNED_TEXT)),
+    mimeType: 'image/png'
+  })
+
+  await assert.rejects(
+    extract(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId),
+    (err: Error) => {
+      assert.strictEqual(err.message, 'OCR request failed')
+      assert.ok(err.cause instanceof Anthropic.AuthenticationError)
+      return true
+    }
+  )
+})
+
+test('extract rejects a mime type it cannot read', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: Buffer.from('plain text'),
+    mimeType: 'text/plain'
+  })
+
+  await assert.rejects(extract(pool, config, documentId), {
+    message: 'Unsupported mime type: text/plain'
+  })
 })
 
 test('extract rejects a file that is not a valid PDF', async (t) => {

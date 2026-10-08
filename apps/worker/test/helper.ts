@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import type { TestContext } from 'node:test'
+import { crc32, deflateSync } from 'node:zlib'
 import { Pool } from 'pg'
 import { type Config, loadConfig } from '../src/env'
 
@@ -13,25 +14,120 @@ export function connect(t: TestContext) {
   return { pool, config }
 }
 
+/** A grayscale image, one byte per pixel (0 is black, 255 white), row by row. */
+interface Bitmap {
+  width: number
+  height: number
+  pixels: Buffer
+}
+
+/** 5×7 glyphs for the characters `scan` can draw; `#` is ink. */
+const GLYPHS: Record<string, string[]> = {
+  H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+  L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+  R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
+  ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....']
+}
+
+/** Text that only exists as pixels, like a scan: no text layer for the worker to read, so only OCR finds it. */
+export const SCANNED_TEXT = 'HELLO WORLD'
+
+/** Draws `text` as black glyphs on white, large enough to read reliably. */
+export function scan(text: string): Bitmap {
+  const scale = 8
+  const margin = 16
+  const width = margin * 2 + text.length * 6 * scale
+  const height = margin * 2 + 7 * scale
+  const pixels = Buffer.alloc(width * height, 255)
+  for (let i = 0; i < text.length; i++) {
+    const glyph = GLYPHS[text.charAt(i)]
+    if (!glyph) throw new Error(`No glyph for ${text.charAt(i)}`)
+    for (const [row, line] of glyph.entries()) {
+      for (let col = 0; col < line.length; col++) {
+        if (line.charAt(col) !== '#') continue
+        // fill the glyph cell's scale × scale block, one pixel row at a time
+        const x = margin + (i * 6 + col) * scale
+        for (let y = 0; y < scale; y++) {
+          const start = (margin + row * scale + y) * width + x
+          pixels.fill(0, start, start + scale)
+        }
+      }
+    }
+  }
+  return { width, height, pixels }
+}
+
+/** Encodes a bitmap as an 8-bit grayscale PNG. */
+export function png({ width, height, pixels }: Bitmap): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+    const length = Buffer.alloc(4)
+    length.writeUInt32BE(data.length)
+    const checksum = Buffer.alloc(4)
+    checksum.writeUInt32BE(crc32(body))
+    return Buffer.concat([length, body, checksum])
+  }
+  // width, height, bit depth 8, color type 0 (grayscale); compression, filter and interlace stay 0
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header[8] = 8
+  // each row starts with its filter type, 0 (none)
+  const rows = Buffer.concat(
+    Array.from({ length: height }, (_, y) =>
+      Buffer.concat([
+        Buffer.from([0]),
+        pixels.subarray(y * width, (y + 1) * width)
+      ])
+    )
+  )
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(rows)),
+    chunk('IEND', Buffer.alloc(0))
+  ])
+}
+
 /**
- * Builds a minimal valid PDF with one line of text per page, so tests need no fixture files.
+ * Builds a minimal valid PDF, so tests need no fixture files. A string page is one line in the text layer; a bitmap page is only an image, like a scan.
  * Each text must not contain `(`, `)` or `\\`, which PDF strings would need escaped.
  */
-export function pdf(pages: string[]): Buffer {
-  // objects: 1 catalog, 2 page tree, then a page and its content per page, then the font
-  const font = 3 + pages.length * 2
+export function pdf(pages: (string | Bitmap)[]): Buffer {
+  // objects: 1 catalog, 2 page tree (filled in last), 3 font, then each page's objects; `add` returns the new object's number
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`
+    '',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
   ]
-  for (const [i, text] of pages.entries()) {
-    const content = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`
-    objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${4 + i * 2} 0 R >>`,
-      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
+  const add = (body: string) => objects.push(body)
+  const stream = (dict: string, data: string) =>
+    `<< ${dict} /Length ${data.length} >>\nstream\n${data}\nendstream`
+  const kids = pages.map((page) => {
+    if (typeof page === 'string') {
+      const content = add(stream('', `BT /F1 12 Tf 72 720 Td (${page}) Tj ET`))
+      return add(
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${content} 0 R >>`
+      )
+    }
+    // a page the size of the image, which fills it
+    const { width, height } = page
+    const image = add(
+      stream(
+        `/Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`,
+        deflateSync(page.pixels).toString('latin1')
+      )
     )
-  }
-  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+    const content = add(stream('', `q ${width} 0 0 ${height} 0 0 cm /Im1 Do Q`))
+    return add(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << /XObject << /Im1 ${image} 0 R >> >> /Contents ${content} 0 R >>`
+    )
+  })
+  objects[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`
 
   // body, then the cross-reference table of each object's byte offset
   let out = '%PDF-1.4\n'

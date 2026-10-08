@@ -45,18 +45,19 @@ flowchart LR
 
 ### Decisions and why
 
-| Decision                                                           | Why                                                                                                                                                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Worker is a separate Node process**                              | Slow, fallible per-document work stays off the request path. OCR and AI run through provider APIs, so nothing needs another language; one stack keeps tooling and shared code simple. |
-| **Postgres is the queue** (`jobs` table, `FOR UPDATE SKIP LOCKED`) | No Redis or broker: one less piece of infrastructure suits a solo project. Adding a broker needs a discussion first.                                                                  |
-| **Ask/RAG is synchronous, in the backend**                         | It must answer in real time, so it never goes through the job queue. Slow per-document work always does.                                                                              |
-| **Answers carry their source**                                     | Every search result or answer returns a `document_id` (plus page/section where available), not just prose.                                                                            |
-| **Extracted metadata stays correctable**                           | Once a user edits an extracted value, re-processing must not silently overwrite it.                                                                                                   |
-| **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                                      |
-| **OCR through an API, not a local engine**                         | Better on phone photos and no system dependencies. Running OCR locally wouldn't keep documents private, since the extracted text goes to an AI provider anyway.                       |
-| **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.                   |
+| Decision                                                           | Why                                                                                                                                                                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Worker is a separate Node process**                              | Slow, fallible per-document work stays off the request path. OCR and AI run through provider APIs, so nothing needs another language; one stack keeps tooling and shared code simple.                           |
+| **Postgres is the queue** (`jobs` table, `FOR UPDATE SKIP LOCKED`) | No Redis or broker: one less piece of infrastructure suits a solo project. Adding a broker needs a discussion first.                                                                                            |
+| **Ask/RAG is synchronous, in the backend**                         | It must answer in real time, so it never goes through the job queue. Slow per-document work always does.                                                                                                        |
+| **Answers carry their source**                                     | Every search result or answer returns a `document_id` (plus page/section where available), not just prose.                                                                                                      |
+| **Extracted metadata stays correctable**                           | Once a user edits an extracted value, re-processing must not silently overwrite it.                                                                                                                             |
+| **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                                                                |
+| **OCR through an API, not a local engine**                         | Better on phone photos and no system dependencies. Running OCR locally wouldn't keep documents private, since the extracted text goes to an AI provider anyway.                                                 |
+| **AI through Claude (Anthropic API)**                              | One account covers OCR, classification and Ask: it reads PDFs and images directly and can cite pages. API data is kept 30 days and not used for training. Each job's model is picked by testing real documents. |
+| **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.                                             |
 
-**Not decided yet:** the AI provider (LLM, OCR, embeddings), how embeddings are stored and searched, and the auth model. Each gets decided in the ticket that first needs it.
+**Not decided yet:** how Ask finds the relevant documents, and the auth model. Each gets decided in the ticket that first needs it.
 
 ## Getting started
 
