@@ -1,10 +1,10 @@
 # End-to-end tests
 
-End-to-end tests of the [Personal Document Manager](../../README.md). Each app's own tests fake the other side. This suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, for example: an uploaded document's text is served once the worker has processed it. The cases use the backend's bundled samples (`apps/backend/samples`): a text PDF, a scanned PDF and an image.
+End-to-end tests of the [Personal Document Manager](../../README.md). Each app's own tests fake the other side. This suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, for example: an uploaded document's text is served once the worker has processed it. The cases use the repo's [samples](../../samples/README.md): a text PDF, a scanned PDF and a photo.
 
 ## Getting started
 
-Set up the backend and the worker first, including the database, its migrations and each app's `.env`: the suite starts both apps, and each one reads its own `.env`. The scanned PDF and the image go through the worker's OCR, so its `.env` needs a valid `ANTHROPIC_API_KEY`; a run costs about €0.01. Then run from this directory:
+Set up the backend and the worker first, including the database, its migrations and each app's `.env`: the suite starts both apps, and each one reads its own `.env`. The scanned PDF and the image go through the worker's OCR, so its `.env` needs a valid `ANTHROPIC_API_KEY`; a run costs about €0.01–0.02. Then run from this directory:
 
 ```bash
 npm test
