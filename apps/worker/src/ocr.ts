@@ -21,7 +21,7 @@ type OcrMimeType = 'application/pdf' | 'image/jpeg' | 'image/png'
 
 /**
  * Transcribes a scanned PDF or a photo with Claude, one string per page; `pageCount` is how many the file has (1 for an image). `extract` calls it for files without a text layer.
- * @throws when the request fails, Claude stops before finishing or returns the wrong number of pages. Messages never quote the document; the SDK's error is the `cause`.
+ * @throws when the request fails, Claude stops early or returns the wrong page count. Messages never quote the document.
  */
 export async function ocr(
   apiKey: string,
@@ -42,14 +42,14 @@ export async function ocr(
           source: { type: 'base64', media_type: mimeType, data }
         }
 
-  // MVP: Claude ignores image metadata, so a phone photo stored sideways with an EXIF rotation arrives sideways, and the vision docs warn accuracy drops; rotate it before upload once there is a frontend
+  // MVP: Claude ignores EXIF rotation, so a sideways phone photo reads worse; rotate it in the frontend before upload
   let message: Anthropic.Message
   try {
     message = await new Anthropic({ apiKey }).messages
       .stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        // transcription needs no reasoning: low and high effort read the same scan identically
+        // transcription needs no reasoning; low read a test scan as well as high
         output_config: {
           effort: 'low',
           format: { type: 'json_schema', schema: PAGES_SCHEMA }
@@ -69,7 +69,7 @@ export async function ocr(
   }
   const text = message.content.find((block) => block.type === 'text')?.text
   if (text === undefined) throw new Error('OCR returned no text block')
-  // no `cause`: a parse error's message quotes the input, which is document text, and `runOnce` logs the cause chain
+  // no `cause`: the parse error quotes document text, and `runOnce` logs causes
   let pages: string[]
   try {
     pages = (JSON.parse(text) as { pages: string[] }).pages

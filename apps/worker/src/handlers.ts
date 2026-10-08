@@ -7,8 +7,8 @@ import { ocr } from './ocr'
 import type { Job } from './queue'
 
 /**
- * Reads a PDF's text layer locally, one string per page, and sends the PDF to OCR only when no page has one (a scan).
- * MVP: a mixed PDF keeps the empty pages of its scanned parts, and a scan whose app stamped a text watermark on every page isn't OCRed; revisit if real documents need it.
+ * Reads a PDF's text layer locally, one string per page, and OCRs the PDF only when no page has one (a scan).
+ * MVP: a mixed PDF keeps its scanned pages empty, and a scan with a text watermark on every page skips OCR.
  */
 async function readPdf(apiKey: string, file: Buffer) {
   // the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`

@@ -13,7 +13,7 @@ interface Page {
   text: string
 }
 
-/** One upload and what each of its pages must read: a string is the exact text layer, a pattern an OCR transcription, whose spacing and case can vary. */
+/** A sample and its expected pages: exact text-layer strings, or patterns for OCR output, whose spacing and case vary. */
 interface Case {
   file: string
   mimeType: string

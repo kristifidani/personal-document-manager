@@ -1,7 +1,7 @@
 import fastifyMultipart from '@fastify/multipart'
 import fp from 'fastify-plugin'
 
-/** Overall cap, the largest per-type limit in `src/routes/documents.ts`; the parser stops reading a file past it. MVP: hardcoded for the only upload route. */
+/** Overall cap: the largest per-type limit in `src/routes/documents.ts`. MVP: hardcoded for the only upload route. */
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
 
 /**

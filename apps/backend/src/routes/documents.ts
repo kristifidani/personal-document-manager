@@ -2,10 +2,7 @@ import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
 import { FastifyPluginAsync } from 'fastify'
 
-/**
- * Accepted mime types and the largest upload for each. Images stay under the 10 MB (base64) image limit of the worker's OCR provider; PDFs use the parser's overall cap (`src/plugins/multipart.ts`).
- * MVP: PDFs and common image formats only; extend when document processing supports more.
- */
+/** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
 const MAX_SIZE_BYTES = new Map([
   ['application/pdf', 10 * 1024 * 1024],
   ['image/jpeg', 5 * 1024 * 1024],
