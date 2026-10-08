@@ -35,21 +35,21 @@ The worker is one loop:
 
 The `extract` handler saves a document's text, one row per page in `document_pages`:
 
-- **PDF**: the text layer is read locally. If any page has none (a scan), the whole PDF goes to Claude for OCR, and only the pages without a text layer take Claude's transcription.
+- **PDF**: the text layer is read locally, and Claude never sees the file. Only when no page has a text layer (a scan) does the PDF go to Claude for OCR.
 - **Image** (JPEG, PNG): goes straight to Claude for OCR, as one page.
 
 OCR sends the file to Anthropic and costs money: about €0.015 per dense page.
 
 When something goes wrong:
 
-| Situation                                         | What the worker does                                                                                   |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| A handler throws (missing file, unknown type, …)  | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.               |
-| OCR fails (network, rate limit, bad key, too big) | The SDK retries network errors, 429 and 5xx twice; then the job is `failed` with `OCR request failed`. |
-| OCR stops early or returns the wrong page count   | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
-| The database is unreachable                       | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
-| Ctrl+C or SIGTERM                                 | Stops polling, lets the current job finish, then exits.                                                |
-| The worker crashes mid-job                        | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
+| Situation                                        | What the worker does                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| A handler throws (missing file, unknown type, …) | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.               |
+| OCR fails (network, rate limit, bad key)         | The SDK retries network errors, 429 and 5xx twice; then the job is `failed` with `OCR request failed`. |
+| OCR stops early or returns the wrong page count  | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
+| The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
+| Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                                |
+| The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
 
 ## Testing by hand
 

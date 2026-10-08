@@ -74,21 +74,34 @@ test('extract reads an image with OCR', async (t) => {
   assert.match(pages[0]?.text ?? '', /HELLO\s+WORLD/i)
 })
 
-test('extract reads PDF pages without a text layer with OCR', async (t) => {
+test('extract reads a scanned PDF with OCR', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: pdf([scan(SCANNED_TEXT)]),
+    mimeType: 'application/pdf'
+  })
+
+  await extract(pool, config, documentId)
+
+  const pages = await readPages(pool, documentId)
+  assert.strictEqual(pages.length, 1)
+  assert.match(pages[0]?.text ?? '', /HELLO\s+WORLD/i)
+})
+
+test('extract never sends a PDF with a text layer to OCR', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, {
     content: pdf(['First page', scan(SCANNED_TEXT)]),
     mimeType: 'application/pdf'
   })
 
-  await extract(pool, config, documentId)
+  // an invalid key fails any OCR request, so success proves none was made
+  await extract(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId)
 
-  // the text-layer page keeps its exact text; the scanned page gets the transcription
-  const [first, second, ...rest] = await readPages(pool, documentId)
-  assert.deepStrictEqual(first, { page_number: 1, text: 'First page' })
-  assert.strictEqual(second?.page_number, 2)
-  assert.match(second.text, /HELLO\s+WORLD/i)
-  assert.deepStrictEqual(rest, [])
+  assert.deepStrictEqual(await readPages(pool, documentId), [
+    { page_number: 1, text: 'First page' },
+    { page_number: 2, text: '' }
+  ])
 })
 
 test('extract rejects when the OCR request fails', async (t) => {
@@ -106,6 +119,18 @@ test('extract rejects when the OCR request fails', async (t) => {
       return true
     }
   )
+})
+
+test('extract rejects a mime type it cannot read', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, {
+    content: Buffer.from('plain text'),
+    mimeType: 'text/plain'
+  })
+
+  await assert.rejects(extract(pool, config, documentId), {
+    message: 'Unsupported mime type: text/plain'
+  })
 })
 
 test('extract rejects a file that is not a valid PDF', async (t) => {

@@ -41,7 +41,7 @@ export async function ocr(
           source: { type: 'base64', media_type: mimeType, data }
         }
 
-  // MVP: the API rejects an image over 10 MB once base64-encoded (about 7.5 MB raw), below the 20 MB upload limit; such a job fails here
+  // MVP: Claude ignores image metadata, so a phone photo stored sideways with an EXIF rotation arrives sideways, and the vision docs warn accuracy drops; rotate it before upload once there is a frontend
   let message: Anthropic.Message
   try {
     message = await new Anthropic({ apiKey }).messages
@@ -68,5 +68,10 @@ export async function ocr(
   }
   const text = message.content.find((block) => block.type === 'text')?.text
   if (text === undefined) throw new Error('OCR returned no text block')
-  return (JSON.parse(text) as { pages: string[] }).pages
+  // a parse error's message quotes the input, which is document text
+  try {
+    return (JSON.parse(text) as { pages: string[] }).pages
+  } catch (err) {
+    throw new Error('OCR returned invalid JSON', { cause: err })
+  }
 }

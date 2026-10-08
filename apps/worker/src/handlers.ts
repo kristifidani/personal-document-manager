@@ -7,8 +7,8 @@ import { ocr } from './ocr'
 import type { Job } from './queue'
 
 /**
- * Reads a PDF's text layer, one string per page, and OCRs the PDF when a page has none (a scan).
- * MVP: one page without text sends the whole PDF to OCR; pages with a text layer keep it, since it is exact.
+ * Reads a PDF's text layer locally, one string per page, and sends the PDF to OCR only when no page has one (a scan).
+ * MVP: a mixed PDF keeps the empty pages of its scanned parts, and a scan whose app stamped a text watermark on every page isn't OCRed; revisit if real documents need it.
  */
 async function readPdf(apiKey: string, file: Buffer) {
   // the parser's messages can quote values from the file, so `jobs.error` gets our own message and the log keeps the parser's as `cause`
@@ -17,16 +17,15 @@ async function readPdf(apiKey: string, file: Buffer) {
       throw new Error('Could not read the PDF text layer', { cause: err })
     }
   )
-  if (pages.every((text) => text.trim())) return pages
+  if (pages.some((text) => text.trim())) return pages
 
-  // fill the pages without text from the transcription
   const scanned = await ocr(apiKey, file, 'application/pdf')
   if (scanned.length !== pages.length) {
     throw new Error(
       `OCR returned ${scanned.length} pages, expected ${pages.length}`
     )
   }
-  return pages.map((text, i) => (text.trim() ? text : (scanned[i] ?? '')))
+  return scanned
 }
 
 /**
