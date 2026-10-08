@@ -31,7 +31,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 - Integration tests cover one component alone (backend or worker) on `node:test`, against the real database and storage directory; no mocks. Backend routes are tested through HTTP (`app.inject`); plugins, the schema and the worker are tested through their own interface. A test never calls into another app: it inserts the rows that app would have written.
 - External APIs aren't mocked either: tests that use Claude call the real API with the developer's `ANTHROPIC_API_KEY`. Keep those calls few and small, since each run costs money.
-- Test documents come from the root `samples/` folder, shared with `requests.http`; don't build documents in code.
+- A test that needs a real document uses one from the root `samples/` folder, shared with `requests.http`; build only placeholder or deliberately broken bytes in code.
 - A flow that spans components (upload, then the worker processes the job) belongs in an end-to-end test in `apps/e2e`, not in either app's integration tests. End-to-end tests are black box: they start each app with its own `npm start` and go through the HTTP API only, never importing from an app or querying the database.
 - Every new or changed behaviour ships with a test in the same PR, including its failure paths. A bug fix ships with a test that fails without the fix.
 - One test per behaviour, named after it. When a change adds an effect to an existing action, extend that action's test instead of adding a second one.
