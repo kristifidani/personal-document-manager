@@ -39,10 +39,25 @@ interface DocumentRow {
   // pg returns `bigint` as a string to avoid precision loss; the response schema serializes it as a number
   size_bytes: string
   created_at: Date
+  status: string
 }
 
-/** SQL column list matching `DocumentRow`, shared by every query that returns documents. */
+/** SQL list of the `documents` columns in `DocumentRow`, shared by every query that returns documents. */
 const DOCUMENT_COLUMNS = 'id, filename, mime_type, size_bytes, created_at'
+
+/**
+ * SQL for a document's `status`, derived from its jobs: `failed` if any job failed, else `processing` if any is running, else `pending` if any is waiting, else `done`. A document with no jobs is `done`.
+ * A job's `error` stays internal: it can hold a server path.
+ */
+const DOCUMENT_STATUS = `(
+  select case
+    when bool_or(status = 'failed') then 'failed'
+    when bool_or(status = 'processing') then 'processing'
+    when bool_or(status = 'pending') then 'pending'
+    else 'done'
+  end
+  from jobs where document_id = documents.id
+) as status`
 
 /** JSON response schema for one `DocumentRow`. */
 const documentSchema = {
@@ -52,9 +67,20 @@ const documentSchema = {
     filename: { type: 'string' },
     mime_type: { type: 'string' },
     size_bytes: { type: 'number' },
-    created_at: { type: 'string' }
+    created_at: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['pending', 'processing', 'done', 'failed']
+    }
   },
-  required: ['id', 'filename', 'mime_type', 'size_bytes', 'created_at']
+  required: [
+    'id',
+    'filename',
+    'mime_type',
+    'size_bytes',
+    'created_at',
+    'status'
+  ]
 } as const
 
 /** `document_pages` columns returned to the client. */
@@ -126,17 +152,22 @@ const documents: FastifyPluginAsync = async (fastify) => {
 
         // persist document and job atomically
         const document = await fastify.pg.transact(async (client) => {
-          const { rows } = await client.query<DocumentRow>(
+          const { rows: documents } = await client.query<
+            Omit<DocumentRow, 'status'>
+          >(
             `insert into documents (id, filename, mime_type, size_bytes, storage_path)
              values ($1, $2, $3, $4, $5)
              returning ${DOCUMENT_COLUMNS}`,
             [id, file.filename, file.mimetype, sizeBytes, path]
           )
-          await client.query(
-            'insert into jobs (document_id, job_type) values ($1, $2)',
+          // its only job so far, so the job's status is the document's
+          const { rows: jobs } = await client.query<
+            Pick<DocumentRow, 'status'>
+          >(
+            'insert into jobs (document_id, job_type) values ($1, $2) returning status',
             [id, 'extract']
           )
-          return rows[0]
+          return { ...documents[0], ...jobs[0] }
         })
         reply.code(201)
         return document
@@ -162,14 +193,14 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async () => {
       const { rows } = await fastify.pg.query<DocumentRow>(
-        `select ${DOCUMENT_COLUMNS} from documents order by created_at desc`
+        `select ${DOCUMENT_COLUMNS}, ${DOCUMENT_STATUS} from documents order by created_at desc`
       )
       return rows
     }
   )
 
   /**
-   * `GET /documents/:id`: returns one document's metadata.
+   * `GET /documents/:id`: returns one document's metadata and processing status.
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */
@@ -183,7 +214,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const { rows } = await fastify.pg.query<DocumentRow>(
-        `select ${DOCUMENT_COLUMNS} from documents where id = $1`,
+        `select ${DOCUMENT_COLUMNS}, ${DOCUMENT_STATUS} from documents where id = $1`,
         [request.params.id]
       )
       if (rows.length === 0) throw new DocumentNotFoundError()
@@ -192,7 +223,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   )
 
   /**
-   * `GET /documents/:id/pages`: returns the document's extracted text, one entry per page in page order, or an empty array when none is stored.
+   * `GET /documents/:id/pages`: returns the document's extracted text, one entry per page in page order, or an empty array when none is stored; the document's `status` tells why.
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */

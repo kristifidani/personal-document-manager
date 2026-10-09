@@ -101,6 +101,11 @@ function startApp(t: TestContext, name: string, env: Record<string, string>) {
   })
 }
 
+/** Everything the started apps have printed so far, for a failure message. */
+export function appOutput() {
+  return `App output:\n${output.join('')}`
+}
+
 /**
  * Calls `check` until it returns a value other than `undefined`.
  * @param what names the awaited state in the timeout error.
@@ -115,16 +120,14 @@ export async function waitFor<T>(
   while (performance.now() < deadline) {
     if (exited.length > 0) {
       throw new Error(
-        `${exited.join(' and ')} exited while waiting for ${what}. App output:\n${output.join('')}`
+        `${exited.join(' and ')} exited while waiting for ${what}. ${appOutput()}`
       )
     }
     const value = await check()
     if (value !== undefined) return value
     await sleep(250)
   }
-  throw new Error(
-    `Timed out waiting for ${what}. App output:\n${output.join('')}`
-  )
+  throw new Error(`Timed out waiting for ${what}. ${appOutput()}`)
 }
 
 /**
