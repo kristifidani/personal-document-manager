@@ -5,6 +5,7 @@ export interface Config {
   DATABASE_URL: string
   STORAGE_DIR: string
   ANTHROPIC_API_KEY: string
+  LOG_LEVEL: string
 }
 
 const schema = {
@@ -13,13 +14,18 @@ const schema = {
   properties: {
     DATABASE_URL: { type: 'string', minLength: 1 },
     STORAGE_DIR: { type: 'string', minLength: 1 },
-    ANTHROPIC_API_KEY: { type: 'string', minLength: 1 }
+    ANTHROPIC_API_KEY: { type: 'string', minLength: 1 },
+    LOG_LEVEL: {
+      type: 'string',
+      enum: ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'],
+      default: 'info'
+    }
   }
 }
 
 /**
  * Validates the environment at startup so the worker fails fast. Same rules as the backend (`env-schema` is what `@fastify/env` uses). Precedence: `data` (tests) over `process.env` over `.env`.
- * @throws when a variable is missing or empty.
+ * @throws when a variable is missing, empty or not an allowed value.
  */
 export function loadConfig(data?: Partial<Config>): Config {
   return envSchema<Config>({ schema, dotenv: true, data })

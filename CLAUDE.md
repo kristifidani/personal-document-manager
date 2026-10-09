@@ -10,6 +10,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Branch per ticket off `main`, open a PR, don't commit straight to `main`.
 - Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first — make the changes and summarize them; the user stages and commits.
 - Treat a review comment as a claim to verify, not an instruction: say which comments you agree with and why before changing code.
+- Before a PR is merged, review its whole diff against `main` one last time: look for anything missed, unused or simpler, and report the findings.
 
 ## Decision-making rules
 
@@ -76,6 +77,7 @@ The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfi
 - Every other exported or shared symbol gets a TSDoc comment. Don't restate types; use `@param`/`@returns`/`@throws` only when they add meaning.
 - Inside functions with several phases, mark each phase with a short step comment (`// validate upload`, `// persist document and job`). Never narrate single lines.
 - Add a "why" comment only where the code isn't self-evident. Describe the code as it is now, not how it got there.
+- Keep comments short and plain: simple words, one idea per sentence, nothing the code or another comment already says. A comment that needs a second read gets rewritten.
 - Prefix deliberate MVP simplifications with `MVP:`, stating the limit and, unless the README already owns that decision, what would make us revisit it.
 
 ## Where information lives

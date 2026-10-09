@@ -2,6 +2,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import type { Pool } from 'pg'
 import type { Config } from './env'
 import { handleJob } from './handlers'
+import { logger, withLogger } from './logger'
 import { claimJob, finishJob } from './queue'
 
 /** Wait between polls when the queue is empty or the database is down. */
@@ -20,7 +21,7 @@ export async function pollJobs(
     try {
       claimed = await runOnce(pool, config)
     } catch (err) {
-      console.error('Polling failed:', err)
+      logger().error({ err }, 'Polling failed')
     }
     if (!claimed) {
       // rejects only when aborted
@@ -37,19 +38,31 @@ export async function pollJobs(
 export async function runOnce(pool: Pool, config: Config): Promise<boolean> {
   const job = await claimJob(pool)
   if (!job) return false
+  // a logger that adds this job's id to every line
+  const log = logger().child({ job_id: job.id })
+  log.info(
+    { job_type: job.job_type, document_id: job.document_id },
+    'Job claimed'
+  )
 
   // run the handler
+  const start = performance.now()
   let error: string | undefined
   try {
-    await handleJob(pool, config, job)
+    await withLogger(log, () => handleJob(pool, config, job))
   } catch (err) {
     // the row keeps only the message; the log has the stack and the `cause` chain
     error = err instanceof Error ? err.message : String(err)
-    console.error(`Job ${job.id} (${job.job_type}) failed:`, err)
+    log.error(
+      { err, duration_ms: Math.round(performance.now() - start) },
+      'Job failed'
+    )
   }
 
   // record the outcome
   await finishJob(pool, job.id, error)
-  if (error === undefined) console.log(`Job ${job.id} (${job.job_type}) done`)
+  if (error === undefined) {
+    log.info({ duration_ms: Math.round(performance.now() - start) }, 'Job done')
+  }
   return true
 }

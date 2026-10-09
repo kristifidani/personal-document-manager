@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
 import { extractText } from 'unpdf'
 import type { Config } from './env'
+import { logger } from './logger'
 import { ocr } from './ocr'
 import type { Job } from './queue'
 
@@ -17,6 +18,7 @@ async function readPdf(apiKey: string, file: Buffer) {
       throw new Error('Could not read the PDF text layer', { cause: err })
     }
   )
+  logger().debug({ page_count: pages.length }, 'Text layer read')
   if (pages.some((text) => text.trim())) return pages
   return ocr(apiKey, file, 'application/pdf', pages.length)
 }
@@ -73,6 +75,7 @@ async function extract(pool: Pool, config: Config, job: Job) {
   } finally {
     client.release()
   }
+  logger().debug({ page_count: pages.length }, 'Pages saved')
 }
 
 /**

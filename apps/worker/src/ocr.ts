@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { logger } from './logger'
 
 /** Sonnet rather than Haiku 4.5, which misread words in a German scan. */
 const MODEL = 'claude-sonnet-5-5'
@@ -29,6 +30,9 @@ export async function ocr(
   mimeType: OcrMimeType,
   pageCount: number
 ): Promise<string[]> {
+  const log = logger()
+  log.debug({ mime_type: mimeType, size_bytes: file.length }, 'OCR started')
+
   // the file goes before the instructions, as the vision docs recommend
   const data = file.toString('base64')
   const source: Anthropic.ContentBlockParam =
@@ -42,6 +46,7 @@ export async function ocr(
           source: { type: 'base64', media_type: mimeType, data }
         }
 
+  const start = performance.now()
   // MVP: Claude ignores EXIF rotation, so a sideways phone photo reads worse; rotate it in the frontend before upload
   let message: Anthropic.Message
   try {
@@ -62,6 +67,16 @@ export async function ocr(
   } catch (err) {
     throw new Error('OCR request failed', { cause: err })
   }
+  // log the cost first: a response that fails the checks below is still billed
+  log.info(
+    {
+      page_count: pageCount,
+      duration_ms: Math.round(performance.now() - start),
+      input_tokens: message.usage.input_tokens,
+      output_tokens: message.usage.output_tokens
+    },
+    'OCR finished'
+  )
 
   // only a finished response is guaranteed to match the schema
   if (message.stop_reason !== 'end_turn') {

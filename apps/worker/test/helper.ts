@@ -4,7 +4,9 @@ import { randomUUID } from 'node:crypto'
 import { extname, join, resolve } from 'node:path'
 import type { TestContext } from 'node:test'
 import { Pool } from 'pg'
+import { pino } from 'pino'
 import { type Config, loadConfig } from '../src/env'
+import { withLogger } from '../src/logger'
 
 /** Loads the config and opens a pool to the test database, closed when the test ends. */
 export function connect(t: TestContext) {
@@ -12,6 +14,27 @@ export function connect(t: TestContext) {
   const pool = new Pool({ connectionString: config.DATABASE_URL })
   t.after(() => pool.end())
   return { pool, config }
+}
+
+/** One log line, parsed from pino's JSON. */
+interface LogLine {
+  msg: string
+  err?: { message: string }
+  [field: string]: unknown
+}
+
+/**
+ * Calls `run` and collects what it logs (down to `debug`) instead of printing it.
+ * @returns `run`'s result and the collected lines.
+ */
+export async function captureLogs<T>(run: () => Promise<T>) {
+  const logged: LogLine[] = []
+  const log = pino(
+    { level: 'debug' },
+    { write: (line) => logged.push(JSON.parse(line) as LogLine) }
+  )
+  const result = await withLogger(log, run)
+  return { result, logged }
 }
 
 /** A stored file: what the backend's upload would have saved, and its mime type. */
