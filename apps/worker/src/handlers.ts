@@ -3,8 +3,8 @@ import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
 import { extractText } from 'unpdf'
 import type { Config } from './env'
-import { ocr } from './ocr'
 import { logger } from './logger'
+import { ocr } from './ocr'
 import type { Job } from './queue'
 
 /**

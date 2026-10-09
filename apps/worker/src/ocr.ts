@@ -46,8 +46,8 @@ export async function ocr(
           source: { type: 'base64', media_type: mimeType, data }
         }
 
-  // MVP: Claude ignores EXIF rotation, so a sideways phone photo reads worse; rotate it in the frontend before upload
   const start = performance.now()
+  // MVP: Claude ignores EXIF rotation, so a sideways phone photo reads worse; rotate it in the frontend before upload
   let message: Anthropic.Message
   try {
     message = await new Anthropic({ apiKey }).messages

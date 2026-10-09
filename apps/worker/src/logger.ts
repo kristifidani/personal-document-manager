@@ -16,7 +16,7 @@ export function logger(): Logger {
 }
 
 /**
- * Calls `run`. `runOnce` uses it to give each job a logger that adds the job's id.
+ * Calls `run` with `log` as the current logger. `runOnce` uses it to give each job a logger that adds the job's id.
  */
 export function withLogger<T>(log: Logger, run: () => Promise<T>): Promise<T> {
   return current.run(log, run)
