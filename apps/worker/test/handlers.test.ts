@@ -6,7 +6,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { Pool } from 'pg'
 import type { Config } from '../src/env'
 import { handleJob } from '../src/handlers'
-import { connect, createDocument, readPages, sample } from './helper'
+import {
+  captureLogs,
+  connect,
+  createDocument,
+  readPages,
+  sample
+} from './helper'
 
 /** The text layer of `samples/text.pdf`, as the worker reads it. */
 const CONTRACT_PAGES = [
@@ -57,12 +63,18 @@ test('extract reads an image with OCR', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, sample('photo.jpg'))
 
-  await extract(pool, config, documentId)
+  const { logged } = await captureLogs(() => extract(pool, config, documentId))
 
   // OCR output varies in spacing and case, so match the receipt's total
   const pages = await readPages(pool, documentId)
   assert.strictEqual(pages.length, 1)
   assert.match(pages[0]?.text ?? '', /total\s*gbp\s*8\.50/i)
+
+  // the log has the request's cost and none of the text
+  const finished = logged.find((line) => line.msg === 'OCR finished')
+  assert.ok(Number(finished?.input_tokens) > 0)
+  assert.ok(Number(finished?.output_tokens) > 0)
+  assert.doesNotMatch(JSON.stringify(logged), /total\s*gbp/i)
 })
 
 test('extract reads a scanned PDF with OCR', async (t) => {

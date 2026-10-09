@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "node --watch -r ts-node/register src/main.ts",
+    "dev": "node --watch -r ts-node/register src/main.ts | pino-pretty",
     "build": "tsc",
     "start": "npm run build && node dist/main.js",
     "test": "npm run data:reset && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
@@ -24,6 +24,7 @@
     "@anthropic-ai/sdk": "^0.132.1",
     "env-schema": "^7.0.0",
     "pg": "^8.23.0",
+    "pino": "^10.3.1",
     "unpdf": "^1.8.1"
   }
 }

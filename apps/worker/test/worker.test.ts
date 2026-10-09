@@ -5,7 +5,13 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import type { Pool } from 'pg'
 import type { Config } from '../src/env'
 import { pollJobs, runOnce } from '../src/worker'
-import { connect, createDocumentWithJob, readJob, sample } from './helper'
+import {
+  captureLogs,
+  connect,
+  createDocumentWithJob,
+  readJob,
+  sample
+} from './helper'
 
 /** Runs `pollJobs` for 100 ms, far below `POLL_INTERVAL_MS`, then aborts it. @returns how long it took to stop. */
 async function pollBriefly(pool: Pool, config: Config) {
@@ -32,19 +38,36 @@ test('marks a job done when its handler succeeds', async (t) => {
     sample('text.pdf')
   )
 
-  assert.strictEqual(await runOnce(pool, config), true)
+  const { result: claimed, logged } = await captureLogs(() =>
+    runOnce(pool, config)
+  )
+
+  assert.strictEqual(claimed, true)
   assert.strictEqual((await readJob(pool, jobId))?.status, 'done')
+  // the handler's own lines carry the job's id too
+  assert.deepStrictEqual(
+    logged.map((line) => line.msg),
+    ['Job claimed', 'Text layer read', 'Pages saved', 'Job done']
+  )
+  assert.ok(logged.every((line) => line.job_id === jobId))
 })
 
 test('marks a job failed with the reason when its handler throws', async (t) => {
   const { pool, config } = connect(t)
   const { jobId } = await createDocumentWithJob(pool, config, null)
 
-  assert.strictEqual(await runOnce(pool, config), true)
+  const { result: claimed, logged } = await captureLogs(() =>
+    runOnce(pool, config)
+  )
+
+  assert.strictEqual(claimed, true)
   const job = await readJob(pool, jobId)
   assert.strictEqual(job?.status, 'failed')
   // the missing file's error from `access`
   assert.match(job.error ?? '', /^ENOENT/)
+  const failed = logged.find((line) => line.msg === 'Job failed')
+  assert.strictEqual(failed?.job_id, jobId)
+  assert.match(failed.err?.message ?? '', /^ENOENT/)
 })
 
 test('pollJobs sleeps when idle and stops as soon as it is aborted', async (t) => {
@@ -65,8 +88,11 @@ test('pollJobs sleeps after a database error instead of retrying at once', async
     throw new Error('database down')
   })
 
-  const elapsed = await pollBriefly(pool, config)
+  const { result: elapsed, logged } = await captureLogs(() =>
+    pollBriefly(pool, config)
+  )
 
   assert.strictEqual(query.mock.callCount(), 1)
   assert.ok(elapsed < 2_000)
+  assert.ok(logged.some((line) => line.msg === 'Polling failed'))
 })

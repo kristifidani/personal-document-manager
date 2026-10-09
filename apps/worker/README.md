@@ -40,6 +40,8 @@ The `extract` handler saves a document's text, one row per page in `document_pag
 
 OCR sends the file to Anthropic and costs money: about €0.015 per dense page.
 
+The worker logs with [pino](https://getpino.io), like the backend: one JSON object per line from `npm start`, and readable lines from `npm run dev`. Every line of a job carries its `job_id`, and an OCR request logs how long it took and the tokens it used. A document's text is never logged.
+
 When something goes wrong:
 
 | Situation                                        | What the worker does                                                                                   |
@@ -71,17 +73,17 @@ And the extracted text with:
 select document_id, page_number, left(text, 80) from document_pages order by document_id, page_number;
 ```
 
-| Scenario      | Do                                                                                                                            | Expect                                                                                                    |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Processed     | Upload `samples/text.pdf` with the backend's [`requests.http`](../backend/requests.http).                                     | Log `Job … (extract) done`; status `done`; one `document_pages` row per page.                             |
-| Image         | Upload `samples/photo.jpg` with the backend's `requests.http`.                                                                | Status `done`; one `document_pages` row with the image's text.                                            |
-| Scanned PDF   | Upload `samples/scanned.pdf` (no text layer).                                                                                 | Status `done`; one row per page with the transcribed text.                                                |
-| OCR failure   | Set `ANTHROPIC_API_KEY=invalid` in `.env`, restart the worker, upload an image.                                               | Status `failed`, `error` is `OCR request failed`.                                                         |
-| Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                                                       |
-| Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `… failed: Error: ENOENT …`; status `failed`, `error` starts with `ENOENT`; the worker keeps polling. |
-| Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`.                              |
-| Re-run a job  | `update jobs set status = 'pending', error = null where id = '<job id>';`                                                     | The worker processes it again.                                                                            |
-| Database down | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`.                              |
-| Shutdown      | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                                                     |
+| Scenario      | Do                                                                                                                            | Expect                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Processed     | Upload `samples/text.pdf` with the backend's [`requests.http`](../backend/requests.http).                                     | Log `Job done`; status `done`; one `document_pages` row per page.                                                  |
+| Image         | Upload `samples/photo.jpg` with the backend's `requests.http`.                                                                | Status `done`; one `document_pages` row with the image's text.                                                     |
+| Scanned PDF   | Upload `samples/scanned.pdf` (no text layer).                                                                                 | Log `OCR finished` with the token counts; status `done`; one row per page with the transcribed text.               |
+| OCR failure   | Set `ANTHROPIC_API_KEY=invalid` in `.env`, restart the worker, upload an image.                                               | Status `failed`, `error` is `OCR request failed`.                                                                  |
+| Queued        | Stop the worker, upload, check the queue, start the worker.                                                                   | `pending` while the worker is stopped, then `done`.                                                                |
+| Failed        | Stop the worker, upload, delete the file named after the document id in `STORAGE_DIR`, start the worker.                      | Log `Job failed` with the `ENOENT` error; status `failed`, `error` starts with `ENOENT`; the worker keeps polling. |
+| Unknown type  | `insert into jobs (document_id, job_type) select id, 'bogus' from documents limit 1;`                                         | Rejected by the database: `violates check constraint "jobs_job_type_check"`.                                       |
+| Re-run a job  | `update jobs set status = 'pending', error = null where id = '<job id>';`                                                     | The worker processes it again.                                                                                     |
+| Database down | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`.                                       |
+| Shutdown      | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                                                              |
 
 For a clean slate, `npm run data:reset` wipes all data and stored files.
