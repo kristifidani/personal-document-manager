@@ -195,6 +195,18 @@ test('jobs has an index on (status, created_at) for claiming pending jobs', asyn
   assert.match(rows[0]?.indexdef ?? '', /\(status, created_at\)/)
 })
 
+test("jobs has an index on document_id for reading a document's status", async (t) => {
+  const app = await build(t)
+
+  const { rows } = await app.pg.query<{ indexdef: string }>(
+    `select indexdef from pg_indexes
+     where schemaname = current_schema() and tablename = 'jobs' and indexname = 'jobs_document_id_idx'`
+  )
+
+  assert.strictEqual(rows.length, 1)
+  assert.match(rows[0]?.indexdef ?? '', /\(document_id\)/)
+})
+
 test('document_pages table has the expected columns and types', async (t) => {
   const app = await build(t)
   const columns = await columnsOf(app, 'document_pages')

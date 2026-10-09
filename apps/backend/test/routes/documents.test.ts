@@ -25,6 +25,7 @@ interface DocumentResponse {
   mime_type: string
   size_bytes: number
   created_at: string
+  status: string
 }
 
 interface ErrorResponse {
@@ -89,6 +90,7 @@ test('POST /documents stores the file and enqueues a job, and GET /documents/:id
   assert.strictEqual(body.filename, 'test.pdf')
   assert.strictEqual(body.mime_type, 'application/pdf')
   assert.strictEqual(body.size_bytes, content.length)
+  assert.strictEqual(body.status, 'pending')
   assert.ok(body.id)
   assert.ok(body.created_at)
 
@@ -207,6 +209,75 @@ test('GET /documents lists newest first', async (t) => {
   const newerIndex = ids.indexOf(newer.id)
   assert.ok(newerIndex !== -1, 'expected the newer document to be listed')
   assert.ok(newerIndex < ids.indexOf(older.id))
+})
+
+/** Reads the document through both read routes and asserts each returns exactly `expected`. */
+async function assertDocument(app: App, expected: DocumentResponse) {
+  const one = await app.inject({
+    method: 'GET',
+    url: `/documents/${expected.id}`
+  })
+  assert.deepStrictEqual(one.json(), expected)
+
+  const list = await app.inject({ method: 'GET', url: '/documents' })
+  assert.deepStrictEqual(
+    list
+      .json<DocumentResponse[]>()
+      .find((document) => document.id === expected.id),
+    expected
+  )
+}
+
+test("a document's status follows its job, without the job's error", async (t) => {
+  const app = await build(t)
+  // the states the worker moves a job through
+  const cases = [
+    { status: 'processing', error: null },
+    { status: 'done', error: null },
+    { status: 'failed', error: "ENOENT: open '/srv/storage/some-id'" }
+  ]
+  for (const { status, error } of cases) {
+    await t.test(status, async () => {
+      const document = (
+        await postDocuments(app, pdf(`${status}.pdf`))
+      ).json<DocumentResponse>()
+      await app.pg.query(
+        'update jobs set status = $2, error = $3 where document_id = $1',
+        [document.id, status, error]
+      )
+
+      await assertDocument(app, { ...document, status })
+    })
+  }
+})
+
+test('a document with several jobs is failed if any failed, else as far along as its slowest job, and done with none', async (t) => {
+  const app = await build(t)
+  const cases = [
+    { jobs: [], status: 'done' },
+    { jobs: ['done', 'pending'], status: 'pending' },
+    { jobs: ['pending', 'done', 'processing'], status: 'processing' },
+    { jobs: ['processing', 'failed', 'done'], status: 'failed' }
+  ]
+  for (const { jobs, status } of cases) {
+    await t.test(`${jobs.join(' + ') || 'no jobs'} is ${status}`, async () => {
+      const document = (
+        await postDocuments(app, pdf('jobs.pdf'))
+      ).json<DocumentResponse>()
+      // replace the upload's job with this case's
+      await app.pg.query('delete from jobs where document_id = $1', [
+        document.id
+      ])
+      for (const jobStatus of jobs) {
+        await app.pg.query(
+          'insert into jobs (document_id, job_type, status) values ($1, $2, $3)',
+          [document.id, 'extract', jobStatus]
+        )
+      }
+
+      await assertDocument(app, { ...document, status })
+    })
+  }
 })
 
 test('GET /documents/:id for an unknown id returns 404', async (t) => {
