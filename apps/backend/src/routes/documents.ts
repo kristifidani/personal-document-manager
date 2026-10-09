@@ -46,8 +46,9 @@ interface DocumentRow {
 const DOCUMENT_COLUMNS = 'id, filename, mime_type, size_bytes, created_at'
 
 /**
- * SQL for a document's `status`, derived from its jobs: `failed` if any job failed, else `processing` if any is running, else `pending` if any is waiting, else `done`. A document with no jobs is `done`.
+ * SQL for a document's `status`, derived from its jobs: `failed` if any failed, else `processing` if any is running, else `pending` if any is waiting, else `done`. No jobs is `done`.
  * A job's `error` stays internal: it can hold a server path.
+ * MVP: a job whose worker crashed stays `processing`, and so does its document (see `claimJob` in the worker).
  */
 const DOCUMENT_STATUS = `(
   select case
@@ -160,7 +161,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
              returning ${DOCUMENT_COLUMNS}`,
             [id, file.filename, file.mimetype, sizeBytes, path]
           )
-          // its only job so far, so the job's status is the document's
+          // the document's only job, so its status is the document's
           const { rows: jobs } = await client.query<
             Pick<DocumentRow, 'status'>
           >(

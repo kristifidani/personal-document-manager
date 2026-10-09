@@ -251,7 +251,7 @@ test("a document's status follows its job, without the job's error", async (t) =
   }
 })
 
-test('a document with several jobs is failed if any failed, else as far along as its slowest job', async (t) => {
+test('a document with several jobs is failed if any failed, else as far along as its slowest job, and done with none', async (t) => {
   const app = await build(t)
   const cases = [
     { jobs: [], status: 'done' },

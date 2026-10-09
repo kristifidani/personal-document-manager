@@ -27,7 +27,7 @@ GET {{baseUrl}}/documents
 ### Get the document from the last upload request; its `status` is pending, processing, done or failed
 GET {{baseUrl}}/documents/{{upload.response.body.$.id}}
 
-### Get the text of the document from the last upload request, one entry per page; empty until the document's status is done
+### Get the text of the document from the last upload request, one entry per page; empty while the document is pending or processing, and if it failed
 GET {{baseUrl}}/documents/{{upload.response.body.$.id}}/pages
 
 ### Get a document that does not exist, to see an error response
