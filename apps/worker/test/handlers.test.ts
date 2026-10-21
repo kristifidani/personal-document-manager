@@ -64,18 +64,23 @@ test('extract saves the text of each PDF page and queues classify', async (t) =>
   assert.deepStrictEqual(queued, [{ job_type: 'classify', status: 'pending' }])
 })
 
-test('extract replaces the saved pages when it runs again', async (t) => {
+test('extract replaces the saved pages when it runs again, without queueing classify twice', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, sample('text.pdf'))
-  // pages from an earlier run, one more than the file has now
+  // pages from an earlier run, one more than the file has now, and the classify job it queued
   await savePages(pool, documentId, ['Old page', 'Old page', 'Old page'])
+  await pool.query(
+    `insert into jobs (document_id, job_type) values ($1, 'classify')`,
+    [documentId]
+  )
 
-  await extract(pool, config, documentId)
+  const queued = await extract(pool, config, documentId)
 
   assert.deepStrictEqual(await readPages(pool, documentId), [
     { page_number: 1, text: CONTRACT_PAGES[0] },
     { page_number: 2, text: CONTRACT_PAGES[1] }
   ])
+  assert.deepStrictEqual(queued, [{ job_type: 'classify', status: 'pending' }])
 })
 
 test('extract reads an image with OCR', async (t) => {

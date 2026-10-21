@@ -70,8 +70,13 @@ async function extract(pool: Pool, config: Config, job: Job) {
         [job.document_id, index + 1, text]
       )
     }
+    // a re-run needs classify again, unless one is still waiting: it will read these pages too
     await client.query(
-      `insert into jobs (document_id, job_type) values ($1, 'classify')`,
+      `insert into jobs (document_id, job_type)
+       select $1, 'classify'
+       where not exists (
+         select 1 from jobs where document_id = $1 and job_type = 'classify' and status = 'pending'
+       )`,
       [job.document_id]
     )
     await client.query('commit')
