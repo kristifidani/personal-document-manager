@@ -50,6 +50,9 @@ test('marks a job done when its handler succeeds', async (t) => {
     ['Job claimed', 'Text layer read', 'Pages saved', 'Job done']
   )
   assert.ok(logged.every((line) => line.job_id === jobId))
+
+  // remove the classify job extract queued, so the next test claims its own job
+  await pool.query('delete from jobs where id <> $1', [jobId])
 })
 
 test('marks a job failed with the reason when its handler throws', async (t) => {

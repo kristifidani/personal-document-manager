@@ -1,4 +1,4 @@
-/** Tests for `handleJob`. Jobs are passed in directly and never inserted, so the queue stays empty. */
+/** Tests for `handleJob`. Jobs are passed in directly, and the jobs a handler queues are removed, so the queue stays empty for other test files. */
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
@@ -10,8 +10,10 @@ import {
   captureLogs,
   connect,
   createDocument,
+  readClassification,
   readPages,
-  sample
+  sample,
+  savePages
 } from './helper'
 
 /** The text layer of `samples/text.pdf`, as the worker reads it. */
@@ -20,25 +22,46 @@ const CONTRACT_PAGES = [
   '4. Notice period. Either party may end the contract with three months notice.\n5. Holidays. Jane Doe is entitled to 25 working days of paid holiday per year.\n6. Governing law. This contract is governed by the law of England and Wales.'
 ]
 
-/** Runs the `extract` handler for a document. */
-function extract(pool: Pool, config: Config, documentId: string) {
-  return handleJob(pool, config, {
+/** Runs `job_type`'s handler for a document, then removes the jobs it queued. @returns their types and statuses. */
+async function runHandler(
+  pool: Pool,
+  config: Config,
+  jobType: string,
+  documentId: string
+) {
+  await handleJob(pool, config, {
     id: randomUUID(),
     document_id: documentId,
-    job_type: 'extract'
+    job_type: jobType
   })
+  const { rows } = await pool.query<{ job_type: string; status: string }>(
+    'delete from jobs where document_id = $1 returning job_type, status',
+    [documentId]
+  )
+  return rows
 }
 
-test('extract saves the text of each PDF page', async (t) => {
+/** Runs the `extract` handler for a document. */
+function extract(pool: Pool, config: Config, documentId: string) {
+  return runHandler(pool, config, 'extract', documentId)
+}
+
+/** Runs the `classify` handler for a document. */
+function classify(pool: Pool, config: Config, documentId: string) {
+  return runHandler(pool, config, 'classify', documentId)
+}
+
+test('extract saves the text of each PDF page and queues classify', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, sample('text.pdf'))
 
-  await extract(pool, config, documentId)
+  const queued = await extract(pool, config, documentId)
 
   assert.deepStrictEqual(await readPages(pool, documentId), [
     { page_number: 1, text: CONTRACT_PAGES[0] },
     { page_number: 2, text: CONTRACT_PAGES[1] }
   ])
+  assert.deepStrictEqual(queued, [{ job_type: 'classify', status: 'pending' }])
 })
 
 test('extract replaces the saved pages when it runs again', async (t) => {
@@ -148,6 +171,76 @@ test('extract rejects when the stored file is missing', async (t) => {
   const documentId = await createDocument(pool, config, null)
 
   await assert.rejects(extract(pool, config, documentId), { code: 'ENOENT' })
+})
+
+/** A German invoice's text, as extract would have saved it. */
+const INVOICE_PAGES = [
+  'Muster GmbH\nRechnung Nr. 2026-1042\nRechnungsdatum: 15.10.2026\nKunde: Max Mustermann\nLeistung: Reparatur Heizung, 2 Stunden\nGesamtbetrag: 240,00 EUR',
+  'Zahlbar bis 01.11.2026 ohne Abzug auf das Konto DE12 3456 7890.'
+]
+
+test('classify saves what Claude reads from the pages', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  await savePages(pool, documentId, CONTRACT_PAGES)
+
+  const { logged } = await captureLogs(() => classify(pool, config, documentId))
+
+  // the model's wording varies, so check the facts the contract states
+  const saved = await readClassification(pool, documentId)
+  assert.strictEqual(saved?.document_type, 'contract')
+  assert.strictEqual(saved.language, 'en')
+  assert.ok(saved.title.trim())
+  assert.ok(saved.parties.some((party) => /jane doe/i.test(party)))
+  assert.ok(saved.dates.some(({ date }) => date === '2026-03-01'))
+  assert.match(saved.summary, /software engineer/i)
+
+  // the log has the request's cost and none of the text
+  const finished = logged.find((line) => line.msg === 'Classification finished')
+  assert.ok(Number(finished?.input_tokens) > 0)
+  assert.doesNotMatch(JSON.stringify(logged), /jane doe/i)
+})
+
+test('classify summarises a document in another language in English', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  await savePages(pool, documentId, INVOICE_PAGES)
+
+  await classify(pool, config, documentId)
+
+  const saved = await readClassification(pool, documentId)
+  assert.strictEqual(saved?.document_type, 'invoice')
+  assert.strictEqual(saved.language, 'de')
+  assert.ok(saved.dates.some(({ date }) => date === '2026-11-01'))
+  assert.match(saved.summary, /invoice/i)
+})
+
+test('classify rejects a document with no text', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  await savePages(pool, documentId, ['', '  \n'])
+
+  // an invalid key fails any request, so the message proves none was made
+  await assert.rejects(
+    classify(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId),
+    { message: 'Document has no text to classify' }
+  )
+  assert.strictEqual(await readClassification(pool, documentId), undefined)
+})
+
+test('classify rejects when the request fails', async (t) => {
+  const { pool, config } = connect(t)
+  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  await savePages(pool, documentId, CONTRACT_PAGES)
+
+  await assert.rejects(
+    classify(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId),
+    (err: Error) => {
+      assert.strictEqual(err.message, 'Classification request failed')
+      assert.ok(err.cause instanceof Anthropic.AuthenticationError)
+      return true
+    }
+  )
 })
 
 test('rejects an unknown job type', async (t) => {

@@ -65,7 +65,13 @@ test('documents table has the expected columns, types and defaults', async (t) =
     mime_type: 'text',
     size_bytes: 'bigint',
     storage_path: 'text',
-    created_at: 'timestamp with time zone'
+    created_at: 'timestamp with time zone',
+    document_type: 'text',
+    title: 'text',
+    language: 'text',
+    parties: 'ARRAY',
+    dates: 'jsonb',
+    summary: 'text'
   })
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
   assert.strictEqual(columns.get('filename')?.is_nullable, 'NO')
@@ -78,6 +84,85 @@ test('documents.size_bytes rejects negative values', async (t) => {
 
   await assert.rejects(
     insertDocument(app, -1),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+/** A complete, valid classification; tests override one field to break it. */
+const CLASSIFICATION = {
+  document_type: 'contract',
+  title: 'Employment contract',
+  language: 'en',
+  parties: ['Jane Doe'],
+  dates: [{ date: '2026-03-01', label: 'Start date' }],
+  summary: 'An employment contract.'
+}
+
+/** Sets a document's classification columns, as the worker's classify job does. */
+function classify(
+  app: App,
+  documentId: string | undefined,
+  values: Record<string, unknown>
+) {
+  return app.pg.query(
+    `update documents
+     set document_type = $2, title = $3, language = $4, parties = $5, dates = $6, summary = $7
+     where id = $1`,
+    [
+      documentId,
+      values.document_type,
+      values.title,
+      values.language,
+      values.parties,
+      JSON.stringify(values.dates),
+      values.summary
+    ]
+  )
+}
+
+test('documents accepts a complete classification', async (t) => {
+  const app = await build(t)
+  const documentId = await insertDocument(app)
+
+  await classify(app, documentId, CLASSIFICATION)
+})
+
+test('documents rejects a classification with only some fields set', async (t) => {
+  const app = await build(t)
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    classify(app, documentId, { ...CLASSIFICATION, summary: null }),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+test('documents.document_type rejects unknown types', async (t) => {
+  const app = await build(t)
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    classify(app, documentId, { ...CLASSIFICATION, document_type: 'bogus' }),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+test('documents.language rejects anything but a two-letter code', async (t) => {
+  const app = await build(t)
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    classify(app, documentId, { ...CLASSIFICATION, language: 'English' }),
+    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+test('documents.dates rejects anything but an array', async (t) => {
+  const app = await build(t)
+  const documentId = await insertDocument(app)
+
+  await assert.rejects(
+    classify(app, documentId, { ...CLASSIFICATION, dates: {} }),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
 })
@@ -127,11 +212,17 @@ test('jobs.error is rejected on a job that has not failed', async (t) => {
   )
 })
 
-test('jobs.job_type rejects unknown types', async (t) => {
+test('jobs.job_type accepts the worker types and rejects unknown ones', async (t) => {
   const app = await build(t)
 
   const documentId = await insertDocument(app)
 
+  for (const jobType of ['extract', 'classify']) {
+    await app.pg.query(
+      'insert into jobs (document_id, job_type) values ($1, $2)',
+      [documentId, jobType]
+    )
+  }
   await assert.rejects(
     app.pg.query('insert into jobs (document_id, job_type) values ($1, $2)', [
       documentId,

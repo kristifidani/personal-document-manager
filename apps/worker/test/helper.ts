@@ -5,6 +5,7 @@ import { extname, join, resolve } from 'node:path'
 import type { TestContext } from 'node:test'
 import { Pool } from 'pg'
 import { pino } from 'pino'
+import type { Classification } from '../src/classify'
 import { type Config, loadConfig } from '../src/env'
 import { withLogger } from '../src/logger'
 
@@ -108,6 +109,30 @@ export async function readPages(pool: Pool, documentId: string) {
     [documentId]
   )
   return rows
+}
+
+/** Saves a document's pages, as extract would have. */
+export async function savePages(
+  pool: Pool,
+  documentId: string,
+  pages: string[]
+) {
+  for (const [index, text] of pages.entries()) {
+    await pool.query(
+      'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
+      [documentId, index + 1, text]
+    )
+  }
+}
+
+/** Reads a document's classification, or `undefined` while it has none. */
+export async function readClassification(pool: Pool, documentId: string) {
+  const { rows } = await pool.query<Classification>(
+    `select document_type, title, language, parties, dates, summary
+     from documents where id = $1 and document_type is not null`,
+    [documentId]
+  )
+  return rows[0]
 }
 
 /** Reads a job's current status and failure reason. */
