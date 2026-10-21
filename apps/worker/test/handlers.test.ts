@@ -68,11 +68,7 @@ test('extract replaces the saved pages when it runs again', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, sample('text.pdf'))
   // pages from an earlier run, one more than the file has now
-  await pool.query(
-    `insert into document_pages (document_id, page_number, text)
-     values ($1, 1, 'Old page'), ($1, 2, 'Old page'), ($1, 3, 'Old page')`,
-    [documentId]
-  )
+  await savePages(pool, documentId, ['Old page', 'Old page', 'Old page'])
 
   await extract(pool, config, documentId)
 
@@ -179,20 +175,23 @@ const INVOICE_PAGES = [
   'Zahlbar bis 01.11.2026 ohne Abzug auf das Konto DE12 3456 7890.'
 ]
 
-test('classify saves what Claude reads from the pages', async (t) => {
+test('classify saves what Claude reads from the pages, replacing an earlier result', async (t) => {
   const { pool, config } = connect(t)
   const documentId = await createDocument(pool, config, sample('text.pdf'))
   await savePages(pool, documentId, CONTRACT_PAGES)
+  // a result from an earlier run
+  await pool.query(
+    `update documents set document_type = 'other', title = 'Old title', summary = 'Old summary' where id = $1`,
+    [documentId]
+  )
 
   const { logged } = await captureLogs(() => classify(pool, config, documentId))
 
   // the model's wording varies, so check the facts the contract states
   const saved = await readClassification(pool, documentId)
   assert.strictEqual(saved?.document_type, 'contract')
-  assert.strictEqual(saved.language, 'en')
-  assert.ok(saved.title.trim())
-  assert.ok(saved.parties.some((party) => /jane doe/i.test(party)))
-  assert.ok(saved.dates.some(({ date }) => date === '2026-03-01'))
+  assert.match(saved.title, /contract/i)
+  assert.match(saved.summary, /jane doe/i)
   assert.match(saved.summary, /software engineer/i)
 
   // the log has the request's cost and none of the text
@@ -210,9 +209,8 @@ test('classify summarises a document in another language in English', async (t) 
 
   const saved = await readClassification(pool, documentId)
   assert.strictEqual(saved?.document_type, 'invoice')
-  assert.strictEqual(saved.language, 'de')
-  assert.ok(saved.dates.some(({ date }) => date === '2026-11-01'))
   assert.match(saved.summary, /invoice/i)
+  assert.match(saved.summary, /240/)
 })
 
 test('classify rejects a document with no text', async (t) => {

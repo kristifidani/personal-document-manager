@@ -68,9 +68,6 @@ test('documents table has the expected columns, types and defaults', async (t) =
     created_at: 'timestamp with time zone',
     document_type: 'text',
     title: 'text',
-    language: 'text',
-    parties: 'ARRAY',
-    dates: 'jsonb',
     summary: 'text'
   })
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
@@ -92,9 +89,6 @@ test('documents.size_bytes rejects negative values', async (t) => {
 const CLASSIFICATION = {
   document_type: 'contract',
   title: 'Employment contract',
-  language: 'en',
-  parties: ['Jane Doe'],
-  dates: [{ date: '2026-03-01', label: 'Start date' }],
   summary: 'An employment contract.'
 }
 
@@ -106,17 +100,9 @@ function classify(
 ) {
   return app.pg.query(
     `update documents
-     set document_type = $2, title = $3, language = $4, parties = $5, dates = $6, summary = $7
+     set document_type = $2, title = $3, summary = $4
      where id = $1`,
-    [
-      documentId,
-      values.document_type,
-      values.title,
-      values.language,
-      values.parties,
-      JSON.stringify(values.dates),
-      values.summary
-    ]
+    [documentId, values.document_type, values.title, values.summary]
   )
 }
 
@@ -143,26 +129,6 @@ test('documents.document_type rejects unknown types', async (t) => {
 
   await assert.rejects(
     classify(app, documentId, { ...CLASSIFICATION, document_type: 'bogus' }),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
-  )
-})
-
-test('documents.language rejects anything but a two-letter code', async (t) => {
-  const app = await build(t)
-  const documentId = await insertDocument(app)
-
-  await assert.rejects(
-    classify(app, documentId, { ...CLASSIFICATION, language: 'English' }),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
-  )
-})
-
-test('documents.dates rejects anything but an array', async (t) => {
-  const app = await build(t)
-  const documentId = await insertDocument(app)
-
-  await assert.rejects(
-    classify(app, documentId, { ...CLASSIFICATION, dates: {} }),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
 })

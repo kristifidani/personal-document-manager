@@ -85,8 +85,8 @@ async function extract(pool: Pool, config: Config, job: Job) {
 }
 
 /**
- * Saves what Claude reads from the document's stored pages into its classification columns, replacing any earlier result.
- * MVP: overwrites values the user may have corrected; see the migration that adds the columns.
+ * Saves what Claude reads from the document's stored pages into its classification columns.
+ * MVP: replaces any earlier result, including values the user corrected; once they can edit them, edits must be kept (README).
  * @throws when the document has no text, so it is never marked classified with nothing read.
  */
 async function classify(pool: Pool, config: Config, job: Job) {
@@ -104,17 +104,9 @@ async function classify(pool: Pool, config: Config, job: Job) {
   const result = await classifyText(config.ANTHROPIC_API_KEY, pages)
   await pool.query(
     `update documents
-     set document_type = $2, title = $3, language = $4, parties = $5, dates = $6, summary = $7
+     set document_type = $2, title = $3, summary = $4
      where id = $1`,
-    [
-      job.document_id,
-      result.document_type,
-      result.title,
-      result.language,
-      result.parties,
-      JSON.stringify(result.dates),
-      result.summary
-    ]
+    [job.document_id, result.document_type, result.title, result.summary]
   )
   logger().debug('Classification saved')
 }

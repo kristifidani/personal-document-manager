@@ -26,7 +26,9 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Keep dependencies minimal — prefer the standard library where reasonable.
-- Before finishing a ticket, check for redundant or unused code/dependencies and anything added ahead of need; keep things simple.
+- KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
+- Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now. Before finishing a ticket, check for redundant or unused code and dependencies.
+- Env vars hold what differs between deployments: URLs, paths, secrets, log level. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
 
 ## Testing
 

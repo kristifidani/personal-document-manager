@@ -38,9 +38,7 @@ The `extract` handler saves a document's text, one row per page in `document_pag
 - **PDF**: the text layer is read locally, and Claude never sees the file. Only when no page has a text layer (a scan) does the PDF go to Claude for OCR.
 - **Image** (JPEG, PNG): goes straight to Claude for OCR, as one page.
 
-It saves the pages and queues `classify` in one transaction. So the `classify` job is `pending` before `extract` is `done`, and the document's status never reads `done` in between.
-
-The `classify` handler sends those pages to Claude as text and saves what it reads into the document's classification columns: type, title, language, parties, dates and an English summary. A document whose pages are all blank fails instead.
+The `classify` handler sends those pages to Claude as text and saves what it reads into the document's classification columns: a type, a title and an English summary. A document whose pages are all blank fails instead.
 
 OCR sends the file to Anthropic and costs money: about €0.015 per dense page. Classification sends only the text: about €0.01 per document.
 
@@ -82,7 +80,7 @@ select document_id, page_number, left(text, 80) from document_pages order by doc
 And the classification with:
 
 ```sql
-select id, document_type, language, title, parties, dates, left(summary, 80) from documents;
+select id, document_type, title, left(summary, 80) from documents;
 ```
 
 | Scenario      | Do                                                                                                                            | Expect                                                                                                             |

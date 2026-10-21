@@ -128,7 +128,7 @@ export async function savePages(
 /** Reads a document's classification, or `undefined` while it has none. */
 export async function readClassification(pool: Pool, documentId: string) {
   const { rows } = await pool.query<Classification>(
-    `select document_type, title, language, parties, dates, summary
+    `select document_type, title, summary
      from documents where id = $1 and document_type is not null`,
     [documentId]
   )
