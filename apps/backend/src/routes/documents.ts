@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
 import { FastifyPluginAsync } from 'fastify'
+import { DatabaseError } from 'pg'
 
 /** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
 const MAX_SIZE_BYTES = new Map([
@@ -24,6 +25,11 @@ const FileTooLargeError = createError(
   'FILE_TOO_LARGE',
   'File exceeds maximum allowed size',
   413
+)
+const DuplicateDocumentError = createError(
+  'DUPLICATE_DOCUMENT',
+  'This file is already uploaded',
+  409
 )
 const DocumentNotFoundError = createError(
   'DOCUMENT_NOT_FOUND',
@@ -128,7 +134,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   /**
    * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and a pending `extract` job in one transaction. On any failure the stored file is removed.
    *
-   * @throws 400 no file provided · 413 file too large or more than one file · 415 unsupported mime type
+   * @throws 400 no file provided · 409 the same file is already uploaded · 413 file too large or more than one file · 415 unsupported mime type
    */
   fastify.post(
     '/documents',
@@ -155,7 +161,10 @@ const documents: FastifyPluginAsync = async (fastify) => {
 
       try {
         // store file
-        const { path, sizeBytes } = await fastify.storage.save(id, file.file)
+        const { path, sizeBytes, sha256 } = await fastify.storage.save(
+          id,
+          file.file
+        )
 
         // enforce limits: size, then a second part, which the parser rejects with a 413
         if (file.file.truncated || sizeBytes > maxSize) {
@@ -168,10 +177,10 @@ const documents: FastifyPluginAsync = async (fastify) => {
           const { rows: documents } = await client.query<
             Omit<DocumentRow, 'status'>
           >(
-            `insert into documents (id, filename, mime_type, size_bytes, storage_path)
-             values ($1, $2, $3, $4, $5)
+            `insert into documents (id, filename, mime_type, size_bytes, storage_path, content_sha256)
+             values ($1, $2, $3, $4, $5, $6)
              returning ${DOCUMENT_COLUMNS}`,
-            [id, file.filename, file.mimetype, sizeBytes, path]
+            [id, file.filename, file.mimetype, sizeBytes, path, sha256]
           )
           // the document's only job, so its status is the document's
           const { rows: jobs } = await client.query<
@@ -187,6 +196,13 @@ const documents: FastifyPluginAsync = async (fastify) => {
       } catch (err) {
         // clean up: `id` is the on-disk name, so this covers every failure
         await fastify.storage.remove(id)
+        // the unique constraint, not a lookup first, so two uploads at once are caught too
+        if (
+          err instanceof DatabaseError &&
+          err.constraint === 'documents_content_sha256_key'
+        ) {
+          throw new DuplicateDocumentError()
+        }
         throw err
       }
     }

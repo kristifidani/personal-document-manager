@@ -1,4 +1,5 @@
 /** Verifies the schema our migrations produce (not the migration tool). Assumes `npm run migrate:up` already ran against `DATABASE_URL`. */
+import { randomBytes } from 'node:crypto'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import type { DatabaseError } from 'pg'
@@ -23,10 +24,11 @@ async function columnsOf(app: App, table: string) {
   return new Map(rows.map((row) => [row.column_name, row]))
 }
 
-// Postgres SQLSTATE for a failed CHECK/NOT NULL/foreign key constraint.
+// Postgres SQLSTATE for a failed CHECK/foreign key/unique constraint.
 // https://www.postgresql.org/docs/current/errcodes-appendix.html
 const CHECK_VIOLATION = '23514'
 const FOREIGN_KEY_VIOLATION = '23503'
+const UNIQUE_VIOLATION = '23505'
 
 function codeOf(err: unknown) {
   return (err as DatabaseError).code
@@ -46,11 +48,15 @@ function assertColumnTypes(
   }
 }
 
-/** Inserts a document row directly, bypassing the API, and returns its id. */
-async function insertDocument(app: App, sizeBytes = 100) {
+/** Inserts a document row directly, bypassing the API, and returns its id. The hash is random unless given, so rows never collide. */
+async function insertDocument(
+  app: App,
+  sizeBytes = 100,
+  contentSha256 = randomBytes(32).toString('hex')
+) {
   const { rows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes, storage_path) values ($1, $2, $3, $4) returning id',
-    ['test.pdf', 'application/pdf', sizeBytes, 'test-path']
+    'insert into documents (filename, mime_type, size_bytes, storage_path, content_sha256) values ($1, $2, $3, $4, $5) returning id',
+    ['test.pdf', 'application/pdf', sizeBytes, 'test-path', contentSha256]
   )
   return rows[0]?.id
 }
@@ -65,6 +71,7 @@ test('documents table has the expected columns, types and defaults', async (t) =
     mime_type: 'text',
     size_bytes: 'bigint',
     storage_path: 'text',
+    content_sha256: 'text',
     created_at: 'timestamp with time zone',
     document_type: 'text',
     title: 'text',
@@ -73,6 +80,7 @@ test('documents table has the expected columns, types and defaults', async (t) =
   assert.match(columns.get('id')?.column_default ?? '', /gen_random_uuid/)
   assert.strictEqual(columns.get('filename')?.is_nullable, 'NO')
   assert.strictEqual(columns.get('storage_path')?.is_nullable, 'NO')
+  assert.strictEqual(columns.get('content_sha256')?.is_nullable, 'NO')
   assert.match(columns.get('created_at')?.column_default ?? '', /now\(\)/)
 })
 
@@ -82,6 +90,29 @@ test('documents.size_bytes rejects negative values', async (t) => {
   await assert.rejects(
     insertDocument(app, -1),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
+  )
+})
+
+test('documents.content_sha256 rejects anything but a lowercase hex SHA-256', async (t) => {
+  const app = await build(t)
+
+  for (const hash of ['not-a-hash', 'AB'.repeat(32), 'ab'.repeat(31)]) {
+    await assert.rejects(
+      insertDocument(app, 100, hash),
+      (err: unknown) => codeOf(err) === CHECK_VIOLATION,
+      hash
+    )
+  }
+})
+
+test('documents.content_sha256 is unique', async (t) => {
+  const app = await build(t)
+  const hash = randomBytes(32).toString('hex')
+  await insertDocument(app, 100, hash)
+
+  await assert.rejects(
+    insertDocument(app, 100, hash),
+    (err: unknown) => codeOf(err) === UNIQUE_VIOLATION
   )
 })
 

@@ -1,5 +1,5 @@
 /** Tests for the storage plugin, registered in isolation with only `env`. */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -15,7 +15,7 @@ function build(t: TestContext) {
   return buildPlugins(t, env, storage)
 }
 
-test('save() creates the storage directory and writes the file', async (t) => {
+test('save() creates the storage directory, writes the file and hashes it', async (t) => {
   const fastify = await build(t)
   const id = randomUUID()
   const content = Buffer.from('hello world')
@@ -24,6 +24,10 @@ test('save() creates the storage directory and writes the file', async (t) => {
 
   assert.strictEqual(result.path, id)
   assert.strictEqual(result.sizeBytes, content.length)
+  assert.strictEqual(
+    result.sha256,
+    createHash('sha256').update(content).digest('hex')
+  )
 
   const filePath = join(fastify.config.STORAGE_DIR, id)
   assert.ok(existsSync(filePath))

@@ -7,4 +7,4 @@ TypeScript (CommonJS) on `node:test`, no dependencies. `npm run check` must pass
 - Black box: never import from another app or query the database. Reach an app's state through the HTTP API; if a test needs state the API doesn't expose, raise it rather than reading the database.
 - Start apps with `startStack` in `test/helper.ts`, which also stops them; never spawn an app directly in a test.
 - Tests run serially (`--test-concurrency=1`): every test's worker claims from the same database queue, so parallel files would process each other's jobs.
-- Run one test: `node --test -r ts-node/register test/upload.test.ts`
+- Run one test: `npm run data:reset && node --test -r ts-node/register test/upload.test.ts`. Without the wipe, a sample uploaded by an earlier run is a duplicate (409).
