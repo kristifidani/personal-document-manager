@@ -25,6 +25,9 @@ interface DocumentResponse {
   mime_type: string
   size_bytes: number
   created_at: string
+  document_type: string | null
+  title: string | null
+  summary: string | null
   status: string
 }
 
@@ -91,6 +94,10 @@ test('POST /documents stores the file and enqueues a job, and GET /documents/:id
   assert.strictEqual(body.mime_type, 'application/pdf')
   assert.strictEqual(body.size_bytes, content.length)
   assert.strictEqual(body.status, 'pending')
+  // not classified yet
+  assert.strictEqual(body.document_type, null)
+  assert.strictEqual(body.title, null)
+  assert.strictEqual(body.summary, null)
   assert.ok(body.id)
   assert.ok(body.created_at)
 
@@ -278,6 +285,30 @@ test('a document with several jobs is failed if any failed, else as far along as
       await assertDocument(app, { ...document, status })
     })
   }
+})
+
+test('a classified document returns its type, title and summary', async (t) => {
+  const app = await build(t)
+  const document = (
+    await postDocuments(app, pdf('contract.pdf'))
+  ).json<DocumentResponse>()
+  // the columns the worker's classify job sets
+  const classification = {
+    document_type: 'contract',
+    title: 'Employment contract',
+    summary: 'Employment contract starting 1 March 2026.'
+  }
+  await app.pg.query(
+    'update documents set document_type = $2, title = $3, summary = $4 where id = $1',
+    [
+      document.id,
+      classification.document_type,
+      classification.title,
+      classification.summary
+    ]
+  )
+
+  await assertDocument(app, { ...document, ...classification })
 })
 
 test('GET /documents/:id for an unknown id returns 404', async (t) => {
