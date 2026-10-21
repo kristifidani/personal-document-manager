@@ -39,11 +39,16 @@ interface DocumentRow {
   // pg returns `bigint` as a string to avoid precision loss; the response schema serializes it as a number
   size_bytes: string
   created_at: Date
+  // set together by the worker's classify job; null until then
+  document_type: string | null
+  title: string | null
+  summary: string | null
   status: string
 }
 
 /** SQL list of the `documents` columns in `DocumentRow`, shared by every query that returns documents. */
-const DOCUMENT_COLUMNS = 'id, filename, mime_type, size_bytes, created_at'
+const DOCUMENT_COLUMNS =
+  'id, filename, mime_type, size_bytes, created_at, document_type, title, summary'
 
 /**
  * SQL for a document's `status`, derived from its jobs: `failed` if any failed, else `processing` if any is running, else `pending` if any is waiting, else `done`. No jobs is `done`.
@@ -69,6 +74,10 @@ const documentSchema = {
     mime_type: { type: 'string' },
     size_bytes: { type: 'number' },
     created_at: { type: 'string' },
+    // no enum: the migration's check constraint owns the list of types
+    document_type: { type: ['string', 'null'] },
+    title: { type: ['string', 'null'] },
+    summary: { type: ['string', 'null'] },
     status: {
       type: 'string',
       enum: ['pending', 'processing', 'done', 'failed']
@@ -80,6 +89,9 @@ const documentSchema = {
     'mime_type',
     'size_bytes',
     'created_at',
+    'document_type',
+    'title',
+    'summary',
     'status'
   ]
 } as const
@@ -201,7 +213,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   )
 
   /**
-   * `GET /documents/:id`: returns one document's metadata and processing status.
+   * `GET /documents/:id`: returns one document's metadata, classification and processing status.
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */
