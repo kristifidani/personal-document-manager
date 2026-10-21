@@ -13,34 +13,41 @@ interface Page {
   text: string
 }
 
-/** A sample and a pattern each of its pages must match; OCR output varies in spacing and case. */
+/** A sample, a pattern each of its pages must match (OCR output varies in spacing and case), and the type it is classified as. */
 interface Case {
   file: string
   mimeType: string
   pages: RegExp[]
+  documentType: string
 }
 
 const CASES: Case[] = [
   {
     file: 'text.pdf',
     mimeType: 'application/pdf',
-    pages: [/starts on 1 March 2026/, /three months notice/]
+    pages: [/starts on 1 March 2026/, /three months notice/],
+    documentType: 'contract'
   },
   {
     file: 'scanned.pdf',
     mimeType: 'application/pdf',
-    pages: [/rechnung\s*nr\.?\s*2026-1042/i, /01\.11\.2026/]
+    pages: [/rechnung\s*nr\.?\s*2026-1042/i, /01\.11\.2026/],
+    documentType: 'invoice'
   },
   {
     file: 'photo.jpg',
     mimeType: 'image/jpeg',
-    pages: [/total\s*gbp\s*8\.50/i]
+    pages: [/total\s*gbp\s*8\.50/i],
+    documentType: 'receipt'
   }
 ]
 
 /** A document as the API returns it: the fields these tests read. */
 interface Document {
   id: string
+  document_type: string | null
+  title: string | null
+  summary: string | null
   status: string
 }
 
@@ -84,7 +91,7 @@ async function readPages(baseUrl: string, id: string) {
   return (await res.json()) as Page[]
 }
 
-test("an uploaded document's text is served once the worker has processed it", async (t) => {
+test("an uploaded document's text and classification are served once the worker has processed it", async (t) => {
   const baseUrl = await startStack(t)
 
   for (const sample of CASES) {
@@ -96,6 +103,11 @@ test("an uploaded document's text is served once the worker has processed it", a
         await readFile(join(SAMPLES_DIR, sample.file))
       )
       assert.strictEqual(document.status, 'done', appOutput())
+
+      // classification: the model's wording varies, so only the type is exact
+      assert.strictEqual(document.document_type, sample.documentType)
+      assert.ok(document.title, 'expected a title')
+      assert.ok(document.summary, 'expected a summary')
 
       const pages = await readPages(baseUrl, document.id)
       assert.deepStrictEqual(
@@ -109,7 +121,7 @@ test("an uploaded document's text is served once the worker has processed it", a
   }
 })
 
-test('an uploaded file the worker cannot read ends failed, with no text', async (t) => {
+test('an uploaded file the worker cannot read ends failed, with no text or classification', async (t) => {
   const baseUrl = await startStack(t)
 
   const document = await uploadAndWait(
@@ -120,5 +132,6 @@ test('an uploaded file the worker cannot read ends failed, with no text', async 
   )
 
   assert.strictEqual(document.status, 'failed')
+  assert.strictEqual(document.document_type, null)
   assert.deepStrictEqual(await readPages(baseUrl, document.id), [])
 })
