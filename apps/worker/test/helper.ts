@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { extname, join, resolve } from 'node:path'
 import type { TestContext } from 'node:test'
 import { Pool } from 'pg'
@@ -58,14 +58,16 @@ export async function createDocument(
     await writeFile(join(dir, documentId), file.content)
   }
 
+  // a random hash, not the file's: tests reuse samples, and the worker never reads it
   await pool.query(
-    `insert into documents (id, filename, mime_type, size_bytes, storage_path)
-     values ($1, 'test', $2, $3, $4)`,
+    `insert into documents (id, filename, mime_type, size_bytes, storage_path, content_sha256)
+     values ($1, 'test', $2, $3, $4, $5)`,
     [
       documentId,
       file?.mimeType ?? 'application/pdf',
       file?.content.length ?? 0,
-      documentId
+      documentId,
+      randomBytes(32).toString('hex')
     ]
   )
   return documentId

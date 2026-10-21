@@ -1,5 +1,5 @@
 /** Tests for the `/documents` routes against a real database and storage dir. */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -40,7 +40,11 @@ interface JobRow {
   status: string
 }
 
-function pdf(filename: string, content = Buffer.from('%PDF')): FilePart {
+/** A PDF part; its bytes are unique unless given, since the same bytes twice are a duplicate. */
+function pdf(
+  filename: string,
+  content = Buffer.from(`%PDF ${randomUUID()}`)
+): FilePart {
   return { filename, mimeType: 'application/pdf', content }
 }
 
@@ -82,7 +86,7 @@ function spyOnSave(app: App) {
 
 test('POST /documents stores the file and enqueues a job, and GET /documents/:id returns it', async (t) => {
   const app = await build(t)
-  const content = Buffer.from('%PDF-1.4 fake pdf content')
+  const content = Buffer.from(`%PDF-1.4 fake pdf content ${randomUUID()}`)
 
   // upload
   const res = await postDocuments(app, pdf('test.pdf', content))
@@ -101,13 +105,19 @@ test('POST /documents stores the file and enqueues a job, and GET /documents/:id
   assert.ok(body.id)
   assert.ok(body.created_at)
 
-  // file stored and job enqueued
-  const { rows: documentRows } = await app.pg.query<{ storage_path: string }>(
-    'select storage_path from documents where id = $1',
-    [body.id]
-  )
+  // file stored with its hash, and job enqueued
+  const { rows: documentRows } = await app.pg.query<{
+    storage_path: string
+    content_sha256: string
+  }>('select storage_path, content_sha256 from documents where id = $1', [
+    body.id
+  ])
   const storagePath = documentRows[0]?.storage_path
   assert.ok(storagePath)
+  assert.strictEqual(
+    documentRows[0]?.content_sha256,
+    createHash('sha256').update(content).digest('hex')
+  )
   assert.ok(existsSync(join(app.config.STORAGE_DIR, storagePath)))
 
   const { rows: jobs } = await app.pg.query<JobRow>(
@@ -199,6 +209,31 @@ test('POST /documents with two file parts rejects and cleans up the first', asyn
   )
   assert.strictEqual(rows.length, 0)
   assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+})
+
+test('POST /documents with a file already uploaded returns 409 and stores nothing new', async (t) => {
+  const app = await build(t)
+  const content = Buffer.from(`%PDF ${randomUUID()}`)
+  const first = (
+    await postDocuments(app, pdf('first.pdf', content))
+  ).json<DocumentResponse>()
+  const savedPath = spyOnSave(app)
+
+  // same bytes under another name
+  const res = await postDocuments(app, pdf('renamed.pdf', content))
+
+  assert.strictEqual(res.statusCode, 409)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'DUPLICATE_DOCUMENT')
+  const path = savedPath()
+  assert.ok(path, 'expected storage.save to have been called')
+  const { rows } = await app.pg.query(
+    'select id from documents where storage_path = $1',
+    [path]
+  )
+  assert.strictEqual(rows.length, 0)
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+  // the first upload is untouched
+  await assertDocument(app, first)
 })
 
 test('GET /documents lists newest first', async (t) => {

@@ -10,6 +10,7 @@ GET {{baseUrl}}/health
 #   ../../samples/scanned.pdf   application/pdf
 #   ../../samples/mixed.pdf     application/pdf
 #   ../../samples/photo.jpg     image/jpeg
+# The same file twice answers 409 DUPLICATE_DOCUMENT; `npm run data:reset` empties the database.
 # @name upload
 POST {{baseUrl}}/documents
 Content-Type: multipart/form-data; boundary=boundary
