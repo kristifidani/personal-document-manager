@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
 import { extractText } from 'unpdf'
+import { classifyText } from './classify'
 import type { Config } from './env'
 import { logger } from './logger'
 import { ocr } from './ocr'
@@ -24,7 +25,7 @@ async function readPdf(apiKey: string, file: Buffer) {
 }
 
 /**
- * Saves the document's text, one `document_pages` row per page. Resolves the file's path like the backend's `src/plugins/storage.ts`.
+ * Saves the document's text, one `document_pages` row per page, and queues its `classify` job. Resolves the file's path like the backend's `src/plugins/storage.ts`.
  * PDFs go through `readPdf`, images straight to OCR.
  */
 async function extract(pool: Pool, config: Config, job: Job) {
@@ -55,7 +56,8 @@ async function extract(pool: Pool, config: Config, job: Job) {
       throw new Error(`Unsupported mime type: ${document.mime_type}`)
   }
 
-  // replace the pages in one transaction, so a re-run never duplicates them
+  // replace the pages and queue classify in one transaction, so a re-run never duplicates pages
+  // and classify is pending before this job is done: the document's status never reads `done` in between
   const client = await pool.connect()
   try {
     await client.query('begin')
@@ -68,6 +70,15 @@ async function extract(pool: Pool, config: Config, job: Job) {
         [job.document_id, index + 1, text]
       )
     }
+    // a re-run needs classify again, unless one is still waiting: it will read these pages too
+    await client.query(
+      `insert into jobs (document_id, job_type)
+       select $1, 'classify'
+       where not exists (
+         select 1 from jobs where document_id = $1 and job_type = 'classify' and status = 'pending'
+       )`,
+      [job.document_id]
+    )
     await client.query('commit')
   } catch (err) {
     await client.query('rollback')
@@ -76,6 +87,33 @@ async function extract(pool: Pool, config: Config, job: Job) {
     client.release()
   }
   logger().debug({ page_count: pages.length }, 'Pages saved')
+}
+
+/**
+ * Saves what Claude reads from the document's stored pages into its classification columns.
+ * MVP: replaces any earlier result, including values the user corrected; once they can edit them, edits must be kept (README).
+ * @throws when the document has no text, so it is never marked classified with nothing read.
+ */
+async function classify(pool: Pool, config: Config, job: Job) {
+  // load the pages
+  const { rows } = await pool.query<{ text: string }>(
+    'select text from document_pages where document_id = $1 order by page_number',
+    [job.document_id]
+  )
+  const pages = rows.map((row) => row.text)
+  if (!pages.some((text) => text.trim())) {
+    throw new Error('Document has no text to classify')
+  }
+
+  // classify and save
+  const result = await classifyText(config.ANTHROPIC_API_KEY, pages)
+  await pool.query(
+    `update documents
+     set document_type = $2, title = $3, summary = $4
+     where id = $1`,
+    [job.document_id, result.document_type, result.title, result.summary]
+  )
+  logger().debug('Classification saved')
 }
 
 /**
@@ -90,6 +128,8 @@ export async function handleJob(
   switch (job.job_type) {
     case 'extract':
       return extract(pool, config, job)
+    case 'classify':
+      return classify(pool, config, job)
     default:
       throw new Error(`Unknown job type: ${job.job_type}`)
   }
