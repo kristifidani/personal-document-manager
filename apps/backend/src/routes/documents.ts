@@ -295,7 +295,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
       }
     },
     async (request, reply) => {
-      // remove the file before committing: if that fails the row stays, so retrying the delete works and no file is left behind
+      // remove the file before committing: if removing or committing fails, the row stays and retrying the delete finishes it, so no file is left without its row
       await fastify.pg.transact(async (client) => {
         const { rows } = await client.query<{ storage_path: string }>(
           'delete from documents where id = $1 returning storage_path',
