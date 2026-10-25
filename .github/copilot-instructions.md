@@ -15,3 +15,4 @@ The rules are in `CLAUDE.md` (root and per app); architecture and its decisions 
 - Formatting and unused code or dependencies: Prettier, ESLint and knip enforce them in CI.
 - Style preferences that no rule in `CLAUDE.md` backs, such as import order.
 - Suggestions to add a dependency or abstraction without a concrete problem it solves.
+- Backward compatibility and deployed data, such as a migration that breaks existing rows: nothing is deployed yet, and dev data is reset with `npm run data:reset`.
