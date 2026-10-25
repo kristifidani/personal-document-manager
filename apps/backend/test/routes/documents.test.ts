@@ -1,6 +1,7 @@
 /** Tests for the `/documents` routes against a real database and storage dir. */
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
@@ -427,6 +428,99 @@ test('GET /documents/:id/pages with a malformed id returns 400', async (t) => {
   const res = await app.inject({
     method: 'GET',
     url: '/documents/not-a-uuid/pages'
+  })
+
+  assert.strictEqual(res.statusCode, 400)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
+})
+
+test('DELETE /documents/:id removes the document, its jobs, pages and file', async (t) => {
+  const app = await build(t)
+  const part = pdf('old.pdf')
+  const document = (await postDocuments(app, part)).json<DocumentResponse>()
+  await app.pg.query(
+    `insert into document_pages (document_id, page_number, text) values ($1, 1, 'Text')`,
+    [document.id]
+  )
+  const { rows } = await app.pg.query<{ storage_path: string }>(
+    'select storage_path from documents where id = $1',
+    [document.id]
+  )
+  const storagePath = join(app.config.STORAGE_DIR, rows[0]?.storage_path ?? '')
+
+  // delete
+  const res = await app.inject({
+    method: 'DELETE',
+    url: `/documents/${document.id}`
+  })
+  assert.strictEqual(res.statusCode, 204)
+  assert.strictEqual(res.body, '')
+
+  // everything is gone
+  const fetched = await app.inject({
+    method: 'GET',
+    url: `/documents/${document.id}`
+  })
+  assert.strictEqual(fetched.statusCode, 404)
+  const { rows: jobs } = await app.pg.query(
+    'select id from jobs where document_id = $1',
+    [document.id]
+  )
+  assert.deepStrictEqual(jobs, [])
+  const { rows: pages } = await app.pg.query(
+    'select page_number from document_pages where document_id = $1',
+    [document.id]
+  )
+  assert.deepStrictEqual(pages, [])
+  assert.ok(!existsSync(storagePath))
+
+  // the same file can be uploaded again
+  const reupload = await postDocuments(app, part)
+  assert.strictEqual(reupload.statusCode, 201)
+})
+
+test("DELETE /documents/:id keeps the document when its file can't be removed", async (t) => {
+  const app = await build(t)
+  const document = (
+    await postDocuments(app, pdf('stuck.pdf'))
+  ).json<DocumentResponse>()
+  // a directory in the file's place makes removing it fail
+  const storagePath = join(app.config.STORAGE_DIR, document.id)
+  await rm(storagePath)
+  await mkdir(storagePath)
+  t.after(() => rm(storagePath, { recursive: true, force: true }))
+
+  const res = await app.inject({
+    method: 'DELETE',
+    url: `/documents/${document.id}`
+  })
+
+  assert.strictEqual(res.statusCode, 500)
+  const fetched = await app.inject({
+    method: 'GET',
+    url: `/documents/${document.id}`
+  })
+  assert.strictEqual(fetched.statusCode, 200)
+})
+
+test('DELETE /documents/:id for an unknown id returns 404', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'DELETE',
+    url: `/documents/${randomUUID()}`
+  })
+
+  assert.strictEqual(res.statusCode, 404)
+  assert.strictEqual(res.json<ErrorResponse>().code, 'DOCUMENT_NOT_FOUND')
+})
+
+test('DELETE /documents/:id with a malformed id returns 400', async (t) => {
+  const app = await build(t)
+
+  const res = await app.inject({
+    method: 'DELETE',
+    url: '/documents/not-a-uuid'
   })
 
   assert.strictEqual(res.statusCode, 400)

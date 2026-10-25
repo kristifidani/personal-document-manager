@@ -280,6 +280,34 @@ const documents: FastifyPluginAsync = async (fastify) => {
       return rows
     }
   )
+
+  /**
+   * `DELETE /documents/:id`: deletes the document, its jobs and pages (they cascade) and its stored file. Allowed while a job runs: that job then fails or updates nothing, and its row is gone with the document.
+   *
+   * @throws 400 `id` is not a UUID · 404 no document with that id
+   */
+  fastify.delete<{ Params: { id: string } }>(
+    '/documents/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: { 204: { type: 'null' } }
+      }
+    },
+    async (request, reply) => {
+      // remove the file before committing: if that fails the row stays, so retrying the delete works and no file is left behind
+      await fastify.pg.transact(async (client) => {
+        const { rows } = await client.query<{ storage_path: string }>(
+          'delete from documents where id = $1 returning storage_path',
+          [request.params.id]
+        )
+        const document = rows[0]
+        if (!document) throw new DocumentNotFoundError()
+        await fastify.storage.remove(document.storage_path)
+      })
+      reply.code(204)
+    }
+  )
 }
 
 export default documents

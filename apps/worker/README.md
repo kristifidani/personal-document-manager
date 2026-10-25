@@ -53,6 +53,7 @@ When something goes wrong:
 | OCR stops early or returns the wrong page count  | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
 | Classification fails or stops early              | Same retries as OCR; then `failed` with `Classification request failed` or `… stopped early: …`.       |
 | A document has no text to classify               | The `classify` job is `failed` with `Document has no text to classify`, and no request is made.        |
+| The document is deleted mid-job                  | The handler fails or updates nothing; the job's row is gone with the document, so nothing is recorded. |
 | The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
 | Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                                |
 | The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
