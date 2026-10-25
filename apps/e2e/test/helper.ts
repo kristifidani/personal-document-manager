@@ -167,7 +167,7 @@ export async function startStack(t: TestContext) {
 }
 
 /** A document as the API returns it: the fields these tests read. */
-export interface Document {
+interface Document {
   id: string
   document_type: string | null
   title: string | null
