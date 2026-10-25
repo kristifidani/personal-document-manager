@@ -61,6 +61,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Validate every request input (params, query, body) in the route's JSON schema before it reaches a query or the file system.
 - Never build a file path from user input; stored files are named by document id.
 - Secrets come from environment variables only; never commit or log them.
+- The repo is public, docs and instruction files included: no hostnames, internal URLs, account details or personal information anywhere in it.
 - Document content leaves the host only for the AI provider the README decides on.
 
 ## Dependencies
