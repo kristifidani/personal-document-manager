@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { requestJson } from './claude'
+import { requestJson } from 'shared/claude'
 import { logger } from './logger'
 
 /** Sonnet rather than Haiku 4.5, which misread words in a German scan. */
@@ -50,7 +50,7 @@ export async function ocr(
         }
 
   // MVP: Claude ignores EXIF rotation, so a sideways phone photo reads worse; rotate it in the frontend before upload
-  const { pages } = (await requestJson(apiKey, {
+  const { pages } = (await requestJson(apiKey, logger(), {
     label: 'OCR',
     model: MODEL,
     maxTokens: MAX_TOKENS,

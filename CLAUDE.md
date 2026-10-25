@@ -25,6 +25,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Keep TODOs short.
 - A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
+- Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
 - Keep dependencies minimal — prefer the standard library where reasonable.
 - KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
 - Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now. Before finishing a ticket, check for redundant or unused code and dependencies.

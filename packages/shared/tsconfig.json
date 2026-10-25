@@ -1,0 +1,9 @@
+// No build: the apps import the .ts source. ts-node compiles it in dev and tests; in production Node strips the types itself, which only works for syntax that erases cleanly.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src/**/*.ts"]
+}

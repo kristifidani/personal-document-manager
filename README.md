@@ -35,13 +35,13 @@ flowchart LR
     W -->|"text, classification"| DB
 ```
 
-| Component    | Path                                     | Responsibility                                                                                        |
-| ------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Backend      | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.                        |
-| Worker       | [`apps/worker`](apps/worker/README.md)   | Async pipeline: text extraction (OCR through Claude when needed), then classification through Claude. |
-| Frontend     | `apps/frontend`                          | React + Vite UI.                                                                                      |
-| Shared types | `packages/shared`                        | TypeScript types shared across the apps.                                                              |
-| E2E tests    | [`apps/e2e`](apps/e2e/README.md)         | Runs the backend and worker as real processes and checks flows that span them.                        |
+| Component   | Path                                     | Responsibility                                                                                        |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Backend     | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.                        |
+| Worker      | [`apps/worker`](apps/worker/README.md)   | Async pipeline: text extraction (OCR through Claude when needed), then classification through Claude. |
+| Frontend    | `apps/frontend`                          | React + Vite UI.                                                                                      |
+| Shared code | `packages/shared`                        | Code and types used by more than one app.                                                             |
+| E2E tests   | [`apps/e2e`](apps/e2e/README.md)         | Runs the backend and worker as real processes and checks flows that span them.                        |
 
 ### Decisions and why
 

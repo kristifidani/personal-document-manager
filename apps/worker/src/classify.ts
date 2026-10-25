@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { requestJson } from './claude'
+import { requestJson } from 'shared/claude'
+import { logger } from './logger'
 
 /** Sonnet at low effort, like OCR; it classified the samples correctly in a test run. */
 const MODEL = 'claude-sonnet-5-5'
@@ -64,7 +65,7 @@ export async function classifyText(
     },
     { type: 'text', text: PROMPT }
   ]
-  return (await requestJson(apiKey, {
+  return (await requestJson(apiKey, logger(), {
     label: 'Classification',
     model: MODEL,
     maxTokens: MAX_TOKENS,
