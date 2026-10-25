@@ -1,5 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { logger } from './logger'
+
+/** The one logger method `requestJson` uses; a pino logger or Fastify's `request.log` fits. */
+export interface JsonRequestLogger {
+  info(fields: Record<string, unknown>, message: string): void
+}
 
 /** One structured request to Claude: what `requestJson` sends. */
 interface JsonRequest {
@@ -16,12 +20,13 @@ interface JsonRequest {
 }
 
 /**
- * Sends one message to Claude and returns its JSON response, unchecked beyond the schema. `ocr` and `classifyText` call it.
+ * Sends one message to Claude and returns its JSON response, unchecked beyond the schema. Shared so every app calls Claude the same way; used by the worker (`ocr`, `classifyText`).
  * Streaming keeps a long response clear of the SDK's HTTP timeout.
  * @throws when the request fails, Claude stops early or returns no valid JSON. Messages start with `label` and never quote the document.
  */
 export async function requestJson(
   apiKey: string,
+  log: JsonRequestLogger,
   request: JsonRequest
 ): Promise<unknown> {
   const { label } = request
@@ -43,7 +48,7 @@ export async function requestJson(
     throw new Error(`${label} request failed`, { cause: err })
   }
   // log the cost first: a response that fails the checks below is still billed
-  logger().info(
+  log.info(
     {
       ...request.logFields,
       duration_ms: Math.round(performance.now() - start),

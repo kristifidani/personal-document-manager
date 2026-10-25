@@ -35,10 +35,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [backend, worker, e2e]
+        dir: [apps/backend, apps/worker, apps/e2e, packages/shared]
     defaults:
       run:
-        working-directory: apps/${{ matrix.app }}
+        working-directory: ${{ matrix.dir }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,8 +47,8 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
-      # Typecheck already covers the type errors; this confirms the production build still emits. The e2e suite has nothing to build.
-      - if: matrix.app != 'e2e'
+      # Typecheck already covers the type errors; this confirms the production build still emits. The e2e suite and the shared package have nothing to build.
+      - if: matrix.dir == 'apps/backend' || matrix.dir == 'apps/worker'
         run: npm run build
 
   test:
