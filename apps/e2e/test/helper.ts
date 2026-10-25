@@ -1,3 +1,4 @@
+import * as assert from 'node:assert'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -6,6 +7,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { TestContext } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+
+/** The repo's shared sample documents. */
+export const SAMPLES_DIR = join(__dirname, '../../../samples')
 
 /** Where each app's `npm start` runs: `apps/<name>`. */
 const APPS_DIR = join(__dirname, '..', '..')
@@ -160,4 +164,58 @@ export async function startStack(t: TestContext) {
     60_000
   )
   return baseUrl
+}
+
+/** A document as the API returns it: the fields these tests read. */
+export interface Document {
+  id: string
+  document_type: string | null
+  title: string | null
+  summary: string | null
+  status: string
+}
+
+/** Uploads a file with `POST /documents` and expects it to be stored. */
+export async function upload(
+  baseUrl: string,
+  filename: string,
+  mimeType: string,
+  content: Buffer<ArrayBuffer>
+) {
+  const form = new FormData()
+  form.append('file', new Blob([content], { type: mimeType }), filename)
+  const res = await fetch(`${baseUrl}/documents`, {
+    method: 'POST',
+    body: form
+  })
+  assert.strictEqual(res.status, 201)
+  return (await res.json()) as Document
+}
+
+/** Polls the document until its `status` is one of `statuses`. */
+export function waitForStatus(baseUrl: string, id: string, statuses: string[]) {
+  return waitFor(
+    `document ${id} to be ${statuses.join(' or ')}`,
+    async () => {
+      const res = await fetch(`${baseUrl}/documents/${id}`)
+      assert.strictEqual(res.status, 200)
+      const document = (await res.json()) as Document
+      return statuses.includes(document.status) ? document : undefined
+    },
+    60_000
+  )
+}
+
+/**
+ * Uploads a file and waits until the worker has finished with it.
+ * @returns the document, with status `done` or `failed`.
+ */
+export async function uploadAndWait(
+  baseUrl: string,
+  filename: string,
+  mimeType: string,
+  content: Buffer<ArrayBuffer>
+) {
+  const { id } = await upload(baseUrl, filename, mimeType, content)
+  return waitForStatus(baseUrl, id, ['done', 'failed'])
 }

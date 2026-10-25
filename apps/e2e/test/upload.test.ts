@@ -3,10 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import { appOutput, startStack, waitFor } from './helper'
-
-/** The repo's shared sample documents. */
-const SAMPLES_DIR = join(__dirname, '../../../samples')
+import { appOutput, SAMPLES_DIR, startStack, uploadAndWait } from './helper'
 
 interface Page {
   page_number: number
@@ -41,48 +38,6 @@ const CASES: Case[] = [
     documentType: 'receipt'
   }
 ]
-
-/** A document as the API returns it: the fields these tests read. */
-interface Document {
-  id: string
-  document_type: string | null
-  title: string | null
-  summary: string | null
-  status: string
-}
-
-/**
- * Uploads a file and waits until the worker has finished with it.
- * @returns the document, with status `done` or `failed`.
- */
-async function uploadAndWait(
-  baseUrl: string,
-  filename: string,
-  mimeType: string,
-  content: Buffer<ArrayBuffer>
-) {
-  // upload
-  const form = new FormData()
-  form.append('file', new Blob([content], { type: mimeType }), filename)
-  const upload = await fetch(`${baseUrl}/documents`, {
-    method: 'POST',
-    body: form
-  })
-  assert.strictEqual(upload.status, 201)
-  const { id } = (await upload.json()) as Document
-
-  // poll the document until its job has finished
-  return waitFor(
-    `the worker to finish ${filename}`,
-    async () => {
-      const res = await fetch(`${baseUrl}/documents/${id}`)
-      assert.strictEqual(res.status, 200)
-      const document = (await res.json()) as Document
-      return ['done', 'failed'].includes(document.status) ? document : undefined
-    },
-    60_000
-  )
-}
 
 /** Reads a document's extracted pages. */
 async function readPages(baseUrl: string, id: string) {
