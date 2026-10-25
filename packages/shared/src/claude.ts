@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 /** The one logger method `requestJson` uses; a pino logger or Fastify's `request.log` fits. */
-export interface JsonRequestLogger {
+interface JsonRequestLogger {
   info(fields: Record<string, unknown>, message: string): void
 }
 
