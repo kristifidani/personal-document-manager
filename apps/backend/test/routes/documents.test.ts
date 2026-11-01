@@ -71,7 +71,7 @@ function postDocuments(app: App, ...parts: FilePart[]) {
 }
 
 /**
- * Spies on `storage.save()` to learn the storage path of a rejected upload, which the error response omits (a directory snapshot would be flaky: test files run in parallel).
+ * Spies on `storage.save()` to learn the storage path of a rejected upload,, which the error response omits.
  * @returns a getter for the saved path, `undefined` until `save()` runs.
  */
 function spyOnSave(app: App) {

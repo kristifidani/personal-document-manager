@@ -44,7 +44,7 @@ function postAsk(app: App, body: unknown) {
   return app.inject({ method: 'POST', url: '/ask', payload: body as object })
 }
 
-// Other test files add classified documents to the same database at the same time, so these tests only check their own rows.
+// Earlier test files leave classified documents in the database, so these tests only check their own rows.
 
 test('POST /ask returns the documents that answer the question', async (t) => {
   const app = await build(t)
@@ -76,6 +76,21 @@ test('POST /ask returns the documents that answer the question', async (t) => {
     }
   )
   assert.ok(!documents.some((hit) => hit.document_id === invoice))
+})
+
+test('POST /ask with no classified documents returns an empty list without calling Claude', async (t) => {
+  const app = await build(t)
+  // empty the catalogue; test files run serially, so no other file is using these rows
+  await app.pg.query(
+    'update documents set document_type = null, title = null, summary = null'
+  )
+  // an invalid key fails any request, so a 200 proves none was made
+  app.config.ANTHROPIC_API_KEY = 'invalid'
+
+  const res = await postAsk(app, { question: 'Where is my contract?' })
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.deepStrictEqual(res.json(), { documents: [] })
 })
 
 test('POST /ask returns 502 when the Claude request fails', async (t) => {
