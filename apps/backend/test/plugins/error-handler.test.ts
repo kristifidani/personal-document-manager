@@ -38,6 +38,27 @@ test('a 5xx error built with @fastify/error returns the generic 500 too', async 
   })
 })
 
+test('a 502 error built with @fastify/error returns its own code and message', async (t) => {
+  const ProviderFailedError = createError(
+    'PROVIDER_FAILED',
+    'Provider failed',
+    502
+  )
+  const fastify = await buildPlugins(t, errorHandler, async (instance) => {
+    instance.get('/throws', () => {
+      throw new ProviderFailedError()
+    })
+  })
+
+  const res = await fastify.inject({ url: '/throws' })
+
+  assert.strictEqual(res.statusCode, 502)
+  assert.deepStrictEqual(res.json(), {
+    code: 'PROVIDER_FAILED',
+    message: 'Provider failed'
+  })
+})
+
 test('an unknown route returns 404 in the same shape', async (t) => {
   const fastify = await buildPlugins(t, errorHandler)
 

@@ -10,7 +10,7 @@
     "dev": "fastify start -w --ignore-watch='/storage(/|$)' -P -r ts-node/register src/app.ts",
     "build": "tsc",
     "start": "npm run build && fastify start dist/app.js",
-    "test": "npm run data:reset && node --test -r ts-node/register \"test/**/*.test.ts\"",
+    "test": "npm run data:reset && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
     "typecheck": "tsc -p test/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -33,6 +33,7 @@
     "fastify-cli": "^8.0.2",
     "fastify-plugin": "^6.0.0",
     "node-pg-migrate": "^9.0.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "shared": "*"
   }
 }

@@ -6,10 +6,12 @@
 GET {{baseUrl}}/health
 
 ### Upload a document. To try another sample (see samples/README.md), change the `<` path and the part's Content-Type:
-#   ../../samples/text.pdf      application/pdf
-#   ../../samples/scanned.pdf   application/pdf
-#   ../../samples/mixed.pdf     application/pdf
-#   ../../samples/photo.jpg     image/jpeg
+#   ../../samples/employment-contract.pdf          application/pdf
+#   ../../samples/employment-contract-signed.pdf   application/pdf
+#   ../../samples/heating-invoice-scan.pdf         application/pdf
+#   ../../samples/cafe-receipt.jpg                 image/jpeg
+#   ../../samples/tenancy-agreement.pdf            application/pdf
+#   ../../samples/deposit-receipt.jpg              image/jpeg
 # The same file twice answers 409 DUPLICATE_DOCUMENT; delete the first one to upload it again.
 # @name upload
 POST {{baseUrl}}/documents
@@ -19,7 +21,7 @@ Content-Type: multipart/form-data; boundary=boundary
 Content-Disposition: form-data; name="file"; filename="sample"
 Content-Type: application/pdf
 
-< ../../samples/text.pdf
+< ../../samples/employment-contract.pdf
 --boundary--
 
 ### List documents, newest first
@@ -33,6 +35,49 @@ GET {{baseUrl}}/documents/{{upload.response.body.$.id}}/pages
 
 ### Delete the document from the last upload request, with its pages and stored file; answers 204 with no body
 DELETE {{baseUrl}}/documents/{{upload.response.body.$.id}}
+
+### Ask which documents answer a question; only classified (`done`) documents can be picked. Upload every sample first: these questions have close matches to tell apart.
+# Expect: both employment contracts, not the tenancy agreement
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "What is my salary?" }
+
+### Expect: the tenancy agreement only, not the employment contracts, though both have a notice period
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "How much notice do I need to give my landlord?" }
+
+### Expect: the employment contract and the tenancy agreement; the question fits both
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "What is my notice period?" }
+
+### Expect: the deposit receipt and the tenancy agreement, not the café receipt
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "How much was my deposit?" }
+
+### Expect: the tenancy agreement, not the heating invoice: the question asks who is responsible, not what was paid
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "Who repairs the heating in my flat?" }
+
+### Expect: the heating invoice, which is in German, from an English question
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "How much did the heating maintenance cost?" }
+
+### Expect: an empty list; no document is about this
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "What is my passport number?" }
 
 ### Get a document that does not exist, to see an error response
 GET {{baseUrl}}/documents/00000000-0000-4000-8000-000000000000

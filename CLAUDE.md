@@ -53,7 +53,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Lowercase keywords; snake_case names; plural table names.
 - Enforce invariants in the schema (`not null`, `check`, foreign keys with an explicit `on delete`), not only in code.
 - Migrations are plain SQL with a working down. Never edit a merged migration; add a new one.
-- A query that filters or sorts a table that grows gets an index, with a comment naming that query.
+- A query that looks up a subset of a table that grows gets an index, with a comment naming that query. A query that reads all or nearly all rows, such as a full list, doesn't: Postgres scans the table either way.
 
 ## Security and privacy
 

@@ -40,7 +40,7 @@ flowchart LR
 | Backend     | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.                        |
 | Worker      | [`apps/worker`](apps/worker/README.md)   | Async pipeline: text extraction (OCR through Claude when needed), then classification through Claude. |
 | Frontend    | `apps/frontend`                          | React + Vite UI.                                                                                      |
-| Shared code | `packages/shared`                        | Code and types used by more than one app.                                                             |
+| Shared code | [`packages/shared`](packages/shared)     | Code and types used by more than one app.                                                             |
 | E2E tests   | [`apps/e2e`](apps/e2e/README.md)         | Runs the backend and worker as real processes and checks flows that span them.                        |
 
 ### Decisions and why
@@ -50,6 +50,7 @@ flowchart LR
 | **Worker is a separate Node process**                              | Slow, fallible per-document work stays off the request path. OCR and AI run through provider APIs, so nothing needs another language; one stack keeps tooling and shared code simple.                           |
 | **Postgres is the queue** (`jobs` table, `FOR UPDATE SKIP LOCKED`) | No Redis or broker: one less piece of infrastructure suits a solo project. Adding a broker needs a discussion first.                                                                                            |
 | **Ask/RAG is synchronous, in the backend**                         | It must answer in real time, so it never goes through the job queue. Slow per-document work always does.                                                                                                        |
+| **Ask picks documents from a catalogue**                           | Claude reads the question with each classified document's type, title and English summary, and picks the ones to read. No embeddings; summaries match any language. Revisit if it outgrows the context.         |
 | **Answers carry their source**                                     | Every search result or answer returns a `document_id` (plus page/section where available), not just prose.                                                                                                      |
 | **Extracted metadata stays correctable**                           | Once a user edits an extracted value, re-processing must not silently overwrite it.                                                                                                                             |
 | **Deadline detection is best-effort**                              | It is a harder problem than classification, so manual create/edit is the reliable path and detection is a bonus.                                                                                                |
@@ -57,7 +58,7 @@ flowchart LR
 | **AI through Claude (Anthropic API)**                              | One account covers OCR, classification and Ask: it reads PDFs and images directly and can cite pages. API data is kept 30 days and not used for training. Each job's model is picked by testing real documents. |
 | **Uploaded files on local disk** (`STORAGE_DIR`)                   | Simplest for a solo, single-host deployment. **Assumes backend and worker mount the same path** — revisit (e.g. object storage) if they ever run on separate hosts.                                             |
 
-**Not decided yet:** how Ask finds the relevant documents, and the auth model. Each gets decided in the ticket that first needs it.
+**Not decided yet:** the auth model. It gets decided in the ticket that first needs it.
 
 ## Getting started
 
