@@ -15,10 +15,17 @@ import {
 test('a document deleted while the worker processes it is gone, and the worker keeps working', async (t) => {
   const baseUrl = await startStack(t)
   // a sample no other test uploads: data is reset once per run, so a shared one would be a duplicate
-  const content = await readFile(join(SAMPLES_DIR, 'mixed.pdf'))
+  const content = await readFile(
+    join(SAMPLES_DIR, 'employment-contract-signed.pdf')
+  )
 
   // delete while a job runs; wherever the job is, the outcome must be the same
-  const { id } = await upload(baseUrl, 'mixed.pdf', 'application/pdf', content)
+  const { id } = await upload(
+    baseUrl,
+    'employment-contract-signed.pdf',
+    'application/pdf',
+    content
+  )
   await waitForStatus(baseUrl, id, ['processing'])
   const deleted = await fetch(`${baseUrl}/documents/${id}`, {
     method: 'DELETE'
@@ -30,7 +37,7 @@ test('a document deleted while the worker processes it is gone, and the worker k
   // the same file uploads again and the worker still finishes it
   const again = await uploadAndWait(
     baseUrl,
-    'mixed.pdf',
+    'employment-contract-signed.pdf',
     'application/pdf',
     content
   )

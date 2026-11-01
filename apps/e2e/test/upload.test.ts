@@ -20,19 +20,19 @@ interface Case {
 
 const CASES: Case[] = [
   {
-    file: 'text.pdf',
+    file: 'employment-contract.pdf',
     mimeType: 'application/pdf',
     pages: [/starts on 1 March 2026/, /three months notice/],
     documentType: 'contract'
   },
   {
-    file: 'scanned.pdf',
+    file: 'heating-invoice-scan.pdf',
     mimeType: 'application/pdf',
     pages: [/rechnung\s*nr\.?\s*2026-1042/i, /01\.11\.2026/],
     documentType: 'invoice'
   },
   {
-    file: 'photo.jpg',
+    file: 'cafe-receipt.jpg',
     mimeType: 'image/jpeg',
     pages: [/total\s*gbp\s*8\.50/i],
     documentType: 'receipt'

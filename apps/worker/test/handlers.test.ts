@@ -16,7 +16,7 @@ import {
   savePages
 } from './helper'
 
-/** The text layer of `samples/text.pdf`, as the worker reads it. */
+/** The text layer of `samples/employment-contract.pdf`, as the worker reads it. */
 const CONTRACT_PAGES = [
   'Employment Contract\nbetween Example Ltd and Jane Doe\n1. Position. Jane Doe is employed as Software Engineer.\n2. Start date. Employment starts on 1 March 2026.\n3. Salary. The gross annual salary is GBP 52,000, paid monthly.',
   '4. Notice period. Either party may end the contract with three months notice.\n5. Holidays. Jane Doe is entitled to 25 working days of paid holiday per year.\n6. Governing law. This contract is governed by the law of England and Wales.'
@@ -53,7 +53,11 @@ function classify(pool: Pool, config: Config, documentId: string) {
 
 test('extract saves the text of each PDF page and queues classify', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
 
   const queued = await extract(pool, config, documentId)
 
@@ -66,7 +70,11 @@ test('extract saves the text of each PDF page and queues classify', async (t) =>
 
 test('extract replaces the saved pages when it runs again, without queueing classify twice', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
   // pages from an earlier run, one more than the file has now, and the classify job it queued
   await savePages(pool, documentId, ['Old page', 'Old page', 'Old page'])
   await pool.query(
@@ -85,7 +93,11 @@ test('extract replaces the saved pages when it runs again, without queueing clas
 
 test('extract reads an image with OCR', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('photo.jpg'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('cafe-receipt.jpg')
+  )
 
   const { logged } = await captureLogs(() => extract(pool, config, documentId))
 
@@ -103,7 +115,11 @@ test('extract reads an image with OCR', async (t) => {
 
 test('extract reads a scanned PDF with OCR', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('scanned.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('heating-invoice-scan.pdf')
+  )
 
   await extract(pool, config, documentId)
 
@@ -116,7 +132,11 @@ test('extract reads a scanned PDF with OCR', async (t) => {
 test('extract never sends a PDF with a text layer to OCR', async (t) => {
   const { pool, config } = connect(t)
   // page 1 has a text layer, page 2 is a scan
-  const documentId = await createDocument(pool, config, sample('mixed.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract-signed.pdf')
+  )
 
   // an invalid key fails any OCR request, so success proves none was made
   await extract(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId)
@@ -129,7 +149,11 @@ test('extract never sends a PDF with a text layer to OCR', async (t) => {
 
 test('extract rejects when the OCR request fails', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('photo.jpg'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('cafe-receipt.jpg')
+  )
 
   await assert.rejects(
     extract(pool, { ...config, ANTHROPIC_API_KEY: 'invalid' }, documentId),
@@ -182,7 +206,11 @@ const INVOICE_PAGES = [
 
 test('classify saves what Claude reads from the pages, replacing an earlier result', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
   await savePages(pool, documentId, CONTRACT_PAGES)
   // a result from an earlier run
   await pool.query(
@@ -207,7 +235,11 @@ test('classify saves what Claude reads from the pages, replacing an earlier resu
 
 test('classify summarises a document in another language in English', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
   await savePages(pool, documentId, INVOICE_PAGES)
 
   await classify(pool, config, documentId)
@@ -220,7 +252,11 @@ test('classify summarises a document in another language in English', async (t) 
 
 test('classify rejects a document with no text', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
   await savePages(pool, documentId, ['', '  \n'])
 
   // an invalid key fails any request, so the message proves none was made
@@ -233,7 +269,11 @@ test('classify rejects a document with no text', async (t) => {
 
 test('classify rejects when the request fails', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(pool, config, sample('text.pdf'))
+  const documentId = await createDocument(
+    pool,
+    config,
+    sample('employment-contract.pdf')
+  )
   await savePages(pool, documentId, CONTRACT_PAGES)
 
   await assert.rejects(

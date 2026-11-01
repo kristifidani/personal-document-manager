@@ -35,7 +35,7 @@ test('marks a job done when its handler succeeds', async (t) => {
   const { jobId } = await createDocumentWithJob(
     pool,
     config,
-    sample('text.pdf')
+    sample('employment-contract.pdf')
   )
 
   const { result: claimed, logged } = await captureLogs(() =>
