@@ -92,5 +92,5 @@ jobs:
         run: npm run migrate:down -- "$(ls migrations/*.sql | wc -l)" && npm run migrate:up
       - run: npm test
         env:
-          # Only this step of the apps that run OCR sees the key, not `npm ci` or the backend. It is both an Actions and a Dependabot secret: Dependabot PRs can't read Actions secrets.
-          ANTHROPIC_API_KEY: ${{ matrix.app != 'backend' && secrets.ANTHROPIC_API_KEY || '' }}
+          # Every app calls Claude (OCR, classify, Ask), but only this step sees the key, not `npm ci`. It is both an Actions and a Dependabot secret: Dependabot PRs can't read Actions secrets.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -34,5 +34,11 @@ GET {{baseUrl}}/documents/{{upload.response.body.$.id}}/pages
 ### Delete the document from the last upload request, with its pages and stored file; answers 204 with no body
 DELETE {{baseUrl}}/documents/{{upload.response.body.$.id}}
 
+### Ask which documents answer a question; only classified (`done`) documents can be picked
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "Where is my employment contract?" }
+
 ### Get a document that does not exist, to see an error response
 GET {{baseUrl}}/documents/00000000-0000-4000-8000-000000000000

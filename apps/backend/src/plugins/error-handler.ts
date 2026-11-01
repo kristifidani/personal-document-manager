@@ -9,7 +9,7 @@ function isValidationError(error: unknown): error is FastifyError {
 /**
  * Builds every error response (`{ code, message }`), for errors thrown by routes and for requests to an unknown route.
  *
- * Only a validation error or an error built with `@fastify/error` (ours, Fastify's or a plugin's), with a 4xx status, reaches the client: its message was written for the client. Anything else is logged in full and answered with a generic 500, even when it carries a `statusCode` of its own, as an error from a third-party client might.
+ * Only a validation error or an error built with `@fastify/error` (ours, Fastify's or a plugin's), with a 4xx status, or 502 for a provider we call (such as Claude) failing, reaches the client: its message was written for the client. Anything else is logged in full and answered with a generic 500, even when it carries a `statusCode` of its own, as an error from a third-party client might.
  */
 export default fp(
   async (fastify) => {
@@ -18,9 +18,13 @@ export default fp(
       if (
         (error instanceof FastifyError || isValidationError(error)) &&
         error.statusCode !== undefined &&
-        error.statusCode < 500
+        (error.statusCode < 500 || error.statusCode === 502)
       ) {
-        request.log.info({ err: error }, error.message)
+        // a provider failing is worth an alert; a bad request isn't
+        request.log[error.statusCode === 502 ? 'error' : 'info'](
+          { err: error },
+          error.message
+        )
         return reply
           .code(error.statusCode)
           .send({ code: error.code, message: error.message })
