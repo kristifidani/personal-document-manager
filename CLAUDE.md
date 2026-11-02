@@ -21,24 +21,23 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 ## Code style
 
 - Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
-- Lint and compiler checks are strict by default. Relax a rule only when it flags idiomatic code rather than a real risk, in the shared config with a one-line reason; never rewrite idiomatic code just to satisfy a rule.
-- Keep TODOs short.
+- Lint and compiler checks are strict by default. Relax a rule only when it flags idiomatic code rather than a real risk, with a one-line reason, in the shared config (or in an app's config when only that app needs it); never rewrite idiomatic code just to satisfy a rule.
 - A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
-- Keep dependencies minimal — prefer the standard library where reasonable.
 - Name things for what they are, and never give a type the same name as the function that takes it; a parameter type only one function uses stays inline in its signature.
 - Order a file in the order its code runs: shared pieces first, then each step with its own constants and helpers, then the entry point that ties the steps together.
 - KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
-- Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now. Before finishing a ticket, check for redundant or unused code and dependencies.
+- Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now, and prefer the standard library over a new dependency. Before finishing a ticket, check for redundant or unused code and dependencies.
 - Env vars hold what differs between deployments: URLs, paths, secrets, log level. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
 
 ## Testing
 
-- Integration tests cover one component alone (backend or worker) on `node:test`, against the real database and storage directory; no mocks. Backend routes are tested through HTTP (`app.inject`); plugins, the schema and the worker are tested through their own interface. A test never calls into another app: it inserts the rows that app would have written.
-- External APIs aren't mocked either: tests that use Claude call the real API with the developer's `ANTHROPIC_API_KEY`. Keep those calls few and small, since each run costs money.
-- A test that needs a real document uses one from the root `samples/` folder, shared with `requests.http`; build only placeholder or deliberately broken bytes in code.
-- A flow that spans components (upload, then the worker processes the job) belongs in an end-to-end test in `apps/e2e`, not in either app's integration tests. End-to-end tests are black box: they start each app with its own `npm start` and go through the HTTP API only, never importing from an app or querying the database.
+- Integration tests (on `node:test`) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. They run against the real database, storage directory and Claude API. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
+- A test's input matches what the code under test reads. A file comes from the root `samples/` folder (shared with `requests.http`), or is built in code only when it must be a placeholder or deliberately broken. Rows are inserted with made-up text written for the test.
+- No mocks of the database, storage or Claude. `t.mock` is only for a failure that can't be produced for real (the database going down), and a spy may wrap the real function to observe it.
+- Tests that call Claude use the developer's `ANTHROPIC_API_KEY`. Keep those calls few and small, since each run costs money.
+- A flow that spans apps (upload, then the worker processes the job) belongs in an end-to-end test in `apps/e2e`, not in either app's integration tests. End-to-end tests are black box, with no mocks and no inserted rows: they start each app with its own `npm start`, upload samples and go through the HTTP API only, never importing from an app or querying the database.
 - Every new or changed behaviour ships with a test in the same PR, including its failure paths. A bug fix ships with a test that fails without the fix.
 - One test per behaviour, named after it. When a change adds an effect to an existing action, extend that action's test instead of adding a second one.
 - A new action gets its own test and reuses earlier behaviour as setup through a helper, never by copying it.
