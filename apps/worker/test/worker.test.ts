@@ -24,13 +24,13 @@ async function pollBriefly(pool: Pool, config: Config) {
   return performance.now() - start
 }
 
-test('returns false when no job is pending', async (t) => {
+test('runOnce returns false when no job is pending', async (t) => {
   const { pool, config } = connect(t)
 
   assert.strictEqual(await runOnce(pool, config), false)
 })
 
-test('marks a job done when its handler succeeds', async (t) => {
+test('runOnce marks a job done when its handler succeeds', async (t) => {
   const { pool, config } = connect(t)
   const { jobId } = await createDocumentWithJob(
     pool,
@@ -55,7 +55,7 @@ test('marks a job done when its handler succeeds', async (t) => {
   await pool.query('delete from jobs where id <> $1', [jobId])
 })
 
-test('marks a job failed with the reason when its handler throws', async (t) => {
+test('runOnce marks a job failed with the reason when its handler throws', async (t) => {
   const { pool, config } = connect(t)
   const { jobId } = await createDocumentWithJob(pool, config, null)
 
@@ -66,7 +66,7 @@ test('marks a job failed with the reason when its handler throws', async (t) => 
   assert.strictEqual(claimed, true)
   const job = await readJob(pool, jobId)
   assert.strictEqual(job?.status, 'failed')
-  // the missing file's error from `access`
+  // the missing file's error from `readFile`
   assert.match(job.error ?? '', /^ENOENT/)
   const failed = logged.find((line) => line.msg === 'Job failed')
   assert.strictEqual(failed?.job_id, jobId)

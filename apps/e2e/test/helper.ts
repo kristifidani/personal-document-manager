@@ -1,3 +1,4 @@
+/** Helpers shared by the end-to-end tests: start and stop the apps, and drive the API. */
 import * as assert from 'node:assert'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'

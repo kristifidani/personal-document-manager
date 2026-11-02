@@ -4,13 +4,13 @@ import * as assert from 'node:assert'
 import { claimJob, finishJob } from '../src/queue'
 import { connect, createDocumentWithJob, readJob } from './helper'
 
-test('returns undefined when no job is pending', async (t) => {
+test('claimJob returns undefined when no job is pending', async (t) => {
   const { pool } = connect(t)
 
   assert.strictEqual(await claimJob(pool), undefined)
 })
 
-test('claims the oldest pending job first', async (t) => {
+test('claimJob claims the oldest pending job first', async (t) => {
   const { pool, config } = connect(t)
   const older = await createDocumentWithJob(pool, config, null)
   const newer = await createDocumentWithJob(pool, config, null)
@@ -27,7 +27,7 @@ test('claims the oldest pending job first', async (t) => {
   assert.strictEqual((await readJob(pool, older.jobId))?.status, 'processing')
 })
 
-test('concurrent claims hand a job to only one claimer', async (t) => {
+test('concurrent claimJob calls hand a job to only one claimer', async (t) => {
   const { pool, config } = connect(t)
   const { jobId } = await createDocumentWithJob(pool, config, null)
 

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { loadConfig } from '../src/env'
 
-test('returns the validated environment', () => {
+test('loadConfig returns the validated environment', () => {
   const config = loadConfig({
     DATABASE_URL: 'postgres://localhost/db',
     STORAGE_DIR: './storage',
@@ -17,7 +17,7 @@ test('returns the validated environment', () => {
   assert.strictEqual(config.LOG_LEVEL, 'debug')
 })
 
-test('throws when a variable is empty', () => {
+test('loadConfig throws when a variable is empty', () => {
   assert.throws(() =>
     loadConfig({
       DATABASE_URL: '',
@@ -27,6 +27,6 @@ test('throws when a variable is empty', () => {
   )
 })
 
-test('throws when the log level is not one pino knows', () => {
+test('loadConfig throws when the log level is not one pino knows', () => {
   assert.throws(() => loadConfig({ LOG_LEVEL: 'loud' }))
 })
