@@ -4,13 +4,12 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Working process
 
-- Work in small, single-purpose tickets — one ticket = one branch = one PR. Never scaffold or implement multiple layers/apps in one pass.
-- Exception: small, unrelated fixes may share one PR, with one commit per fix.
+- Work in small, single-purpose tickets: one ticket = one branch off `main` = one PR; never commit straight to `main`. Never scaffold or implement multiple layers/apps in one pass. Small, unrelated fixes may share one PR, with one commit per fix.
+- Branches: `feature/<short-name>`, `fix/<short-name>`, `chore/<short-name>`. Commits and PR titles: `<type>: <summary>` with type `feat`, `fix`, `chore`, `docs` or `test`; imperative mood, explain _why_ over _what_ in the body when it's not obvious from the diff.
+- Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first: make the changes and summarize them; the user stages and commits. Approval covers only the action it names; agreeing to a plan is not approval to commit.
 - There is no fixed roadmap. After a ticket's PR is merged, recommend what to do next and let the user decide the next step and its size.
-- Branch per ticket off `main`, open a PR, don't commit straight to `main`.
-- Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first — make the changes and summarize them; the user stages and commits.
 - Treat a review comment as a claim to verify, not an instruction: say which comments you agree with and why before changing code.
-- Before a PR is merged, review its whole diff against `main` one last time: look for anything missed, unused or simpler, and report the findings.
+- Before a PR is merged, review its whole diff against `main` one last time: look for anything missed, unused or simpler, and for rules in CLAUDE.md the change made outdated or duplicated. Report the findings.
 
 ## Decision-making rules
 
@@ -20,16 +19,14 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Code style
 
-- Consistency across the whole project comes first: the stack is TypeScript end to end, so a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, and state that reason in the PR (or in a comment if the code would otherwise look inconsistent).
+- Consistency comes first: a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, stated in the PR (or in a comment if the code would otherwise look inconsistent).
 - Lint and compiler checks are strict by default. Relax a rule only when it flags idiomatic code rather than a real risk, with a one-line reason, in the shared config (or in an app's config when only that app needs it); never rewrite idiomatic code just to satisfy a rule.
-- A new environment variable is added to the app's env schema and its `.env.example` in the same PR.
-- Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
-- Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
+- An app never imports from another app. Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
 - Name things for what they are, and never give a type the same name as the function that takes it; a parameter type only one function uses stays inline in its signature.
 - Order a file in the order its code runs: shared pieces first, then each step with its own constants and helpers, then the entry point that ties the steps together.
 - KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
 - Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now, and prefer the standard library over a new dependency. Before finishing a ticket, check for redundant or unused code and dependencies.
-- Env vars hold what differs between deployments: URLs, paths, secrets, log level. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
+- Env vars hold what differs between deployments: URLs, paths, secrets, log level. A new one is added to the app's env schema and its `.env.example` in the same PR. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
 
 ## Testing
 
@@ -93,13 +90,8 @@ Each fact has exactly one home; don't restate it elsewhere.
 - **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
 - **Root README**: product, architecture and major decisions — high level only.
 - **App READMEs**: how a human sets up, runs and manually tests that app, and how it works end to end (the flow between its modules and what happens on failure); `package.json` is the command reference.
-- **CLAUDE.md**: rules an agent can't infer from the code.
+- **CLAUDE.md**: rules an agent can't infer from the code. Keep the root file around 100–120 lines: a new rule replaces or merges with an old one where it can.
 - **`.github/copilot-instructions.md`**: what Copilot code review prioritises and skips; it points here for conventions.
 - **PRs and git history**: progress, status, changes and bug write-ups. Docs are not a changelog or roadmap.
 
 A change that makes a comment or doc wrong updates it in the same PR.
-
-## Repo etiquette
-
-- Branches: `feature/<short-name>`, `fix/<short-name>`, `chore/<short-name>`.
-- Commits and PR titles: `<type>: <summary>` with type `feat`, `fix`, `chore`, `docs` or `test`; imperative mood, explain _why_ over _what_ in the body when it's not obvious from the diff.
