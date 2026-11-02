@@ -18,9 +18,6 @@ const PAGES_SCHEMA = {
 const PROMPT =
   'Transcribe the text of every page exactly as written, in its original language. Return one string per page, in page order; a page without text is an empty string.'
 
-/** The file types `ocr` reads: the backend's accepted uploads. */
-type OcrMimeType = 'application/pdf' | 'image/jpeg' | 'image/png'
-
 /**
  * Transcribes a scanned PDF or a photo with Claude, one string per page; `pageCount` is how many the file has (1 for an image). `extract` calls it for files without a text layer.
  * @throws when the request fails (see `requestJson`) or returns the wrong page count.
@@ -28,7 +25,7 @@ type OcrMimeType = 'application/pdf' | 'image/jpeg' | 'image/png'
 export async function ocr(
   apiKey: string,
   file: Buffer,
-  mimeType: OcrMimeType,
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png',
   pageCount: number
 ): Promise<string[]> {
   logger().debug(

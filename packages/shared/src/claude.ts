@@ -1,3 +1,4 @@
+/** Calls to Claude shared by the apps. Server-only: every call needs the API key, so the frontend never imports this. */
 import Anthropic from '@anthropic-ai/sdk'
 
 /** Where each call logs its cost; a pino logger or Fastify's `request.log` fits. */

@@ -9,28 +9,6 @@ import { claimJob, finishJob } from './queue'
 const POLL_INTERVAL_MS = 2_000
 
 /**
- * Processes jobs until `signal` aborts. Aborting cuts a sleep short, but a running job finishes first.
- */
-export async function pollJobs(
-  pool: Pool,
-  config: Config,
-  signal: AbortSignal
-) {
-  while (!signal.aborted) {
-    let claimed = false
-    try {
-      claimed = await runOnce(pool, config)
-    } catch (err) {
-      logger().error({ err }, 'Polling failed')
-    }
-    if (!claimed) {
-      // rejects only when aborted
-      await sleep(POLL_INTERVAL_MS, undefined, { signal }).catch(() => {})
-    }
-  }
-}
-
-/**
  * Claims one job, runs its handler and records `done`, or `failed` with the thrown error's message.
  * @returns whether a job was claimed.
  * @throws when claiming or recording fails; a handler error only fails the job.
@@ -65,4 +43,26 @@ export async function runOnce(pool: Pool, config: Config): Promise<boolean> {
     log.info({ duration_ms: Math.round(performance.now() - start) }, 'Job done')
   }
   return true
+}
+
+/**
+ * Processes jobs until `signal` aborts. Aborting cuts a sleep short, but a running job finishes first.
+ */
+export async function pollJobs(
+  pool: Pool,
+  config: Config,
+  signal: AbortSignal
+) {
+  while (!signal.aborted) {
+    let claimed = false
+    try {
+      claimed = await runOnce(pool, config)
+    } catch (err) {
+      logger().error({ err }, 'Polling failed')
+    }
+    if (!claimed) {
+      // rejects only when aborted
+      await sleep(POLL_INTERVAL_MS, undefined, { signal }).catch(() => {})
+    }
+  }
 }

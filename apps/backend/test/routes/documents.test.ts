@@ -162,6 +162,19 @@ test('POST /documents with an unsupported mime type returns 415 and creates noth
   assert.strictEqual(savedPath(), undefined)
 })
 
+test("POST /documents accepts a file of exactly its type's limit", async (t) => {
+  const app = await build(t)
+  // well past the parser's 1 MB default, so this fails if the route's limits aren't applied
+  const limit = 10 * 1024 * 1024
+  const content = Buffer.alloc(limit, 'a')
+  content.write(randomUUID())
+
+  const res = await postDocuments(app, pdf('max.pdf', content))
+
+  assert.strictEqual(res.statusCode, 201)
+  assert.strictEqual(res.json<DocumentResponse>().size_bytes, limit)
+})
+
 test('POST /documents with an oversized file returns 413 and cleans up', async (t) => {
   // each type's limit plus one byte: PDFs hit the parser's cap, images the route's lower limit
   const files: FilePart[] = [

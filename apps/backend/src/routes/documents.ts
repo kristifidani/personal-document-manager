@@ -4,7 +4,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { DatabaseError } from 'pg'
 
 /** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
-const MAX_SIZE_BYTES = new Map([
+const MAX_SIZE_BYTES_BY_TYPE = new Map([
   ['application/pdf', 10 * 1024 * 1024],
   ['image/jpeg', 5 * 1024 * 1024],
   ['image/png', 5 * 1024 * 1024]
@@ -145,13 +145,20 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       // read the first file part; the iterator must be consumed only once
-      const parts = request.files()
+      // the parser truncates a file past the largest type's limit and rejects a second file with a 413
+      // MVP: one file per request; raise `files` if bulk upload is added
+      const parts = request.files({
+        limits: {
+          fileSize: Math.max(...MAX_SIZE_BYTES_BY_TYPE.values()),
+          files: 1
+        }
+      })
       const first = await parts.next()
       if (first.done) throw new NoFileProvidedError()
       const file = first.value
 
       // validate type; drain the rejected stream so the request can finish
-      const maxSize = MAX_SIZE_BYTES.get(file.mimetype)
+      const maxSize = MAX_SIZE_BYTES_BY_TYPE.get(file.mimetype)
       if (maxSize === undefined) {
         file.file.resume()
         throw new UnsupportedMimeTypeError(file.mimetype)
@@ -266,7 +273,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       // check the document exists, so an unknown id is a 404, not an empty list
-      const { rows: documents } = await fastify.pg.query(
+      const { rows: documents } = await fastify.pg.query<{ id: string }>(
         'select id from documents where id = $1',
         [request.params.id]
       )
