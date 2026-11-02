@@ -1,10 +1,10 @@
 # End-to-end tests
 
-End-to-end tests of the [Personal Document Manager](../../README.md). Each app's own tests fake the other side. This suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, for example: an uploaded document's text and classification are served once the worker has processed it, a file the worker can't read ends `failed`, and a document deleted while the worker processes it is gone without breaking the worker. The cases use the repo's [samples](../../samples/README.md): a text PDF, a scanned PDF, a mixed PDF and a photo.
+End-to-end tests of the [Personal Document Manager](../../README.md). Each app's own tests fake the other side. This suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, for example: an uploaded document's text and classification are served once the worker has processed it, a file the worker can't read ends `failed`, a document deleted while the worker processes it is gone without breaking the worker, and a question about an uploaded document is answered with the page it comes from. The cases use the repo's [samples](../../samples/README.md): text PDFs, a scanned PDF, a mixed PDF and a photo.
 
 ## Getting started
 
-Set up the backend and the worker first, including the database, its migrations and each app's `.env`: the suite starts both apps, and each one reads its own `.env`. Every sample goes through Claude (classification, plus OCR for the scanned PDF and the image), so the worker's `.env` needs a valid `ANTHROPIC_API_KEY`; a run costs a few cents. Then run from this directory:
+Set up the backend and the worker first, including the database, its migrations and each app's `.env`: the suite starts both apps, and each one reads its own `.env`. Every sample goes through Claude (classification, plus OCR for the scanned PDF and the image), and Ask calls it from the backend, so both apps' `.env` need a valid `ANTHROPIC_API_KEY`; a run costs a few cents. Then run from this directory:
 
 ```bash
 npm test

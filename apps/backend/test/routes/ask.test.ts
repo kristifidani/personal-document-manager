@@ -9,6 +9,8 @@ import { type App, build } from '../helper'
 
 interface AskResponse {
   documents: { document_id: string; title: string; document_type: string }[]
+  answer: string | null
+  citations: { document_id: string; page: number }[]
 }
 
 interface ErrorResponse {
@@ -22,8 +24,12 @@ interface Classification {
   summary: string
 }
 
-/** Inserts a classified document, as upload and the worker would leave it, and returns its id. */
-async function insertClassified(app: App, classification: Classification) {
+/** Inserts a classified document with its pages, as upload and the worker would leave it, and returns its id. */
+async function insertClassified(
+  app: App,
+  classification: Classification,
+  pages: string[] = []
+) {
   const { rows } = await app.pg.query<{ id: string }>(
     `insert into documents (filename, mime_type, size_bytes, storage_path, content_sha256, document_type, title, summary)
      values ('test.pdf', 'application/pdf', 100, 'test-path', $1, $2, $3, $4)
@@ -37,6 +43,12 @@ async function insertClassified(app: App, classification: Classification) {
   )
   const id = rows[0]?.id
   if (!id) throw new Error('Inserting the document returned no row')
+  for (const [index, text] of pages.entries()) {
+    await app.pg.query(
+      'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
+      [id, index + 1, text]
+    )
+  }
   return id
 }
 
@@ -46,27 +58,55 @@ function postAsk(app: App, body: unknown) {
 
 // Earlier test files leave classified documents in the database, so these tests only check their own rows.
 
-test('POST /ask returns the documents that answer the question', async (t) => {
+test('POST /ask returns the documents that answer the question, an answer and the pages it cites', async (t) => {
   const app = await build(t)
-  const contract = await insertClassified(app, {
-    document_type: 'contract',
-    title: 'Employment contract with Quillfeather Robotics GmbH',
-    summary:
-      'Employment contract between Jane Example and Quillfeather Robotics GmbH for a software engineer role, starting 1 March 2026 with a salary of EUR 60,000 a year.'
-  })
-  const invoice = await insertClassified(app, {
-    document_type: 'invoice',
-    title: 'Dental invoice from Smile Clinic, June 2026',
-    summary:
-      'Invoice from Smile Clinic to Jane Example for a dental check-up on 12 June 2026, EUR 85, due 30 June 2026.'
-  })
+  // the question needs two documents, so each citation must name the right one:
+  // the salary is on page 3 of the contract, after an empty page (a scanned page of a mixed PDF); the net pay is on page 2 of the payslip
+  const contract = await insertClassified(
+    app,
+    {
+      document_type: 'contract',
+      title: 'Employment contract with Quillfeather Robotics GmbH',
+      summary:
+        'Employment contract between Jane Example and Quillfeather Robotics GmbH for a software engineer role, starting 1 March 2026 with a salary of EUR 60,000 a year.'
+    },
+    [
+      'Employment contract between Quillfeather Robotics GmbH and Jane Example. Jane Example is employed as a software engineer from 1 March 2026.',
+      '',
+      'Salary. The employee is paid EUR 60,000 a year, in twelve monthly instalments.'
+    ]
+  )
+  const payslip = await insertClassified(
+    app,
+    {
+      document_type: 'payslip',
+      title: 'Payslip from Quillfeather Robotics GmbH, March 2026',
+      summary:
+        'Payslip from Quillfeather Robotics GmbH to Jane Example for March 2026, with a net pay of EUR 3,620.'
+    },
+    [
+      'Quillfeather Robotics GmbH. Payslip for Jane Example, March 2026.',
+      'Gross pay EUR 5,000. Tax and insurance EUR 1,380. Net pay EUR 3,620.'
+    ]
+  )
+  const invoice = await insertClassified(
+    app,
+    {
+      document_type: 'invoice',
+      title: 'Dental invoice from Smile Clinic, June 2026',
+      summary:
+        'Invoice from Smile Clinic to Jane Example for a dental check-up on 12 June 2026, EUR 85, due 30 June 2026.'
+    },
+    ['Smile Clinic. Dental check-up on 12 June 2026: EUR 85, due 30 June 2026.']
+  )
 
   const res = await postAsk(app, {
-    question: 'Where is my contract with Quillfeather Robotics?'
+    question:
+      'What yearly salary does Quillfeather Robotics pay me, and what was my net pay in March 2026?'
   })
 
   assert.strictEqual(res.statusCode, 200)
-  const { documents } = res.json<AskResponse>()
+  const { documents, answer, citations } = res.json<AskResponse>()
   assert.deepStrictEqual(
     documents.find((hit) => hit.document_id === contract),
     {
@@ -75,7 +115,43 @@ test('POST /ask returns the documents that answer the question', async (t) => {
       document_type: 'contract'
     }
   )
+  assert.ok(documents.some((hit) => hit.document_id === payslip))
   assert.ok(!documents.some((hit) => hit.document_id === invoice))
+  // the model's wording varies, so only the amounts are checked
+  assert.match(answer ?? '', /60[,.]?000/)
+  assert.match(answer ?? '', /3[,.]?620/)
+  // Claude may cite other pages too; the ones holding the facts must be among them, and the empty page 2 is never sent
+  const citedPages = (id: string) =>
+    citations
+      .filter((citation) => citation.document_id === id)
+      .map((citation) => citation.page)
+  const all = JSON.stringify(citations)
+  assert.ok(citedPages(contract).includes(3), all)
+  assert.ok(!citedPages(contract).includes(2), all)
+  assert.ok(citedPages(payslip).includes(2), all)
+  assert.deepStrictEqual(citedPages(invoice), [])
+})
+
+test('POST /ask answers null when no document is relevant', async (t) => {
+  const app = await build(t)
+  await insertClassified(
+    app,
+    {
+      document_type: 'receipt',
+      title: 'Café receipt',
+      summary: 'Receipt for a coffee and a croissant, GBP 8.50.'
+    },
+    ['Coffee GBP 4.00, croissant GBP 4.50, total GBP 8.50.']
+  )
+
+  const res = await postAsk(app, { question: 'What is my passport number?' })
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.deepStrictEqual(res.json(), {
+    documents: [],
+    answer: null,
+    citations: []
+  })
 })
 
 test('POST /ask with no classified documents returns an empty list without calling Claude', async (t) => {
@@ -90,7 +166,11 @@ test('POST /ask with no classified documents returns an empty list without calli
   const res = await postAsk(app, { question: 'Where is my contract?' })
 
   assert.strictEqual(res.statusCode, 200)
-  assert.deepStrictEqual(res.json(), { documents: [] })
+  assert.deepStrictEqual(res.json(), {
+    documents: [],
+    answer: null,
+    citations: []
+  })
 })
 
 test('POST /ask returns 502 when the Claude request fails', async (t) => {
