@@ -27,6 +27,8 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Respect service boundaries: don't mix backend, AI/worker, and frontend logic.
 - Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
 - Keep dependencies minimal — prefer the standard library where reasonable.
+- Name things for what they are, and never give a type the same name as the function that takes it; a parameter type only one function uses stays inline in its signature.
+- Order a file in the order its code runs: shared pieces first, then each step with its own constants and helpers, then the entry point that ties the steps together.
 - KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
 - Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now. Before finishing a ticket, check for redundant or unused code and dependencies.
 - Env vars hold what differs between deployments: URLs, paths, secrets, log level. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
@@ -81,7 +83,7 @@ The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfi
 - Every other exported or shared symbol gets a TSDoc comment. Don't restate types; use `@param`/`@returns`/`@throws` only when they add meaning.
 - Inside functions with several phases, mark each phase with a short step comment (`// validate upload`, `// persist document and job`). Never narrate single lines.
 - Add a "why" comment only where the code isn't self-evident. Describe the code as it is now, not how it got there.
-- Keep comments short and plain: simple words, one idea per sentence, nothing the code or another comment already says. A comment that needs a second read gets rewritten.
+- Keep comments short and plain: one line where possible, simple words, one idea per sentence, nothing the code or another comment already says. A comment that needs a second read gets rewritten.
 - Prefix deliberate MVP simplifications with `MVP:`, stating the limit and, unless the README already owns that decision, what would make us revisit it.
 
 ## Where information lives
