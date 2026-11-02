@@ -21,6 +21,7 @@
     "migrate:up": "node --env-file-if-exists=.env ../../node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
     "migrate:down": "node --env-file-if-exists=.env ../../node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
     "data:reset": "node --env-file-if-exists=.env -r ts-node/register test/reset-data.ts",
+    "samples:upload": "node --env-file-if-exists=.env -r ts-node/register test/upload-samples.ts",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
   },
   "dependencies": {

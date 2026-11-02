@@ -5,7 +5,7 @@
 ### Health check
 GET {{baseUrl}}/health
 
-### Upload a document. To try another sample (see samples/README.md), change the `<` path and the part's Content-Type:
+### Upload a document. To upload every sample at once, run `npm run samples:upload` instead. To try another sample (see samples/README.md), change the `<` path and the part's Content-Type:
 #   ../../samples/employment-contract.pdf          application/pdf
 #   ../../samples/employment-contract-signed.pdf   application/pdf
 #   ../../samples/heating-invoice-scan.pdf         application/pdf
@@ -42,6 +42,18 @@ POST {{baseUrl}}/ask
 Content-Type: application/json
 
 { "question": "How much notice do I need to give my landlord?" }
+
+### Expect: the employment contract and the tenancy agreement; the question fits both
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "What is my notice period?" }
+
+### Expect: the deposit receipt and the tenancy agreement, not the café receipt
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{ "question": "How much was my deposit?" }
 
 ### Expect: the heating invoice, which is in German, answered in English
 POST {{baseUrl}}/ask
