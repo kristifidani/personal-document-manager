@@ -1,7 +1,6 @@
 {
   "editor.formatOnSave": true,
   "[markdown]": {
-    "editor.formatOnSave": true,
     "editor.formatOnPaste": true
   },
   "github.copilot.chat.commitMessageGeneration.instructions": [
