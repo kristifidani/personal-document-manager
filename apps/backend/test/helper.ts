@@ -1,5 +1,5 @@
 import type { TestContext } from 'node:test'
-import Fastify, { FastifyPluginAsync } from 'fastify'
+import Fastify, { type FastifyPluginAsync } from 'fastify'
 import app from '../src/app'
 
 /**

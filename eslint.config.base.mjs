@@ -17,6 +17,11 @@ export default defineConfig(
       }
     },
     rules: {
+      // One import style everywhere, and Node strips types in packages/shared, where a type-only import must say so. Inline `type` keeps a mixed import on one line.
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { fixStyle: 'inline-type-imports' }
+      ],
       // Arrow shorthand is the idiom for callbacks whose result nobody reads: () => controller.abort().
       '@typescript-eslint/no-confusing-void-expression': [
         'error',

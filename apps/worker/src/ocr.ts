@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
 import { requestJson } from 'shared/claude'
 import { logger } from './logger'
 

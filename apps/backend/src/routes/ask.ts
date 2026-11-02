@@ -1,5 +1,5 @@
 import createError from '@fastify/error'
-import { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
+import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
 import {
   requestCitedAnswer,
   requestJson,

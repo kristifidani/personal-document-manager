@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
-import { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { DatabaseError } from 'pg'
 
 /** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
