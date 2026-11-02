@@ -60,7 +60,8 @@ function postAsk(app: App, body: unknown) {
 
 test('POST /ask returns the documents that answer the question, an answer and the pages it cites', async (t) => {
   const app = await build(t)
-  // the salary is on page 3, after an empty page (a scanned page of a mixed PDF), so the cited page number must skip it
+  // the question needs two documents, so each citation must name the right one:
+  // the salary is on page 3 of the contract, after an empty page (a scanned page of a mixed PDF); the net pay is on page 2 of the payslip
   const contract = await insertClassified(
     app,
     {
@@ -75,6 +76,19 @@ test('POST /ask returns the documents that answer the question, an answer and th
       'Salary. The employee is paid EUR 60,000 a year, in twelve monthly instalments.'
     ]
   )
+  const payslip = await insertClassified(
+    app,
+    {
+      document_type: 'payslip',
+      title: 'Payslip from Quillfeather Robotics GmbH, March 2026',
+      summary:
+        'Payslip from Quillfeather Robotics GmbH to Jane Example for March 2026, with a net pay of EUR 3,620.'
+    },
+    [
+      'Quillfeather Robotics GmbH. Payslip for Jane Example, March 2026.',
+      'Gross pay EUR 5,000. Tax and insurance EUR 1,380. Net pay EUR 3,620.'
+    ]
+  )
   const invoice = await insertClassified(
     app,
     {
@@ -87,7 +101,8 @@ test('POST /ask returns the documents that answer the question, an answer and th
   )
 
   const res = await postAsk(app, {
-    question: 'What salary does Quillfeather Robotics pay me?'
+    question:
+      'What yearly salary does Quillfeather Robotics pay me, and what was my net pay in March 2026?'
   })
 
   assert.strictEqual(res.statusCode, 200)
@@ -100,16 +115,21 @@ test('POST /ask returns the documents that answer the question, an answer and th
       document_type: 'contract'
     }
   )
+  assert.ok(documents.some((hit) => hit.document_id === payslip))
   assert.ok(!documents.some((hit) => hit.document_id === invoice))
-  // the model's wording varies, so only the amount is checked
+  // the model's wording varies, so only the amounts are checked
   assert.match(answer ?? '', /60[,.]?000/)
-  // Claude may cite other contract pages too; page 3 must be among them, and the empty page 2 is never sent
-  const contractPages = citations
-    .filter((citation) => citation.document_id === contract)
-    .map((citation) => citation.page)
-  assert.ok(contractPages.includes(3), `cited pages: ${contractPages.join()}`)
-  assert.ok(!contractPages.includes(2), `cited pages: ${contractPages.join()}`)
-  assert.ok(!citations.some((citation) => citation.document_id === invoice))
+  assert.match(answer ?? '', /3[,.]?620/)
+  // Claude may cite other pages too; the ones holding the facts must be among them, and the empty page 2 is never sent
+  const citedPages = (id: string) =>
+    citations
+      .filter((citation) => citation.document_id === id)
+      .map((citation) => citation.page)
+  const all = JSON.stringify(citations)
+  assert.ok(citedPages(contract).includes(3), all)
+  assert.ok(!citedPages(contract).includes(2), all)
+  assert.ok(citedPages(payslip).includes(2), all)
+  assert.deepStrictEqual(citedPages(invoice), [])
 })
 
 test('POST /ask answers null when no document is relevant', async (t) => {
