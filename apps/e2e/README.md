@@ -14,7 +14,7 @@ All scripts are in `package.json`.
 
 ## How it works
 
-`npm test` wipes all data first (the backend's `npm run data:reset`), so jobs left over from other test runs don't hold up the worker. Then each test:
+The suite uses the test database (`.env.test`, passed on to both apps), so it never touches dev data. `npm test` first migrates and wipes it (the backend's `npm run test:setup`), so jobs left over from other test runs don't hold up the worker. Then each test:
 
 1. **Starts** the backend and the worker with their own `npm start`, which builds them first. Both get one fresh temporary storage directory, and the backend gets a free port, so a running dev server doesn't get in the way.
 2. **Waits** until the backend answers `GET /health`.
