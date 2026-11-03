@@ -4,7 +4,7 @@ End-to-end tests of the [Personal Document Manager](../../README.md). The suite 
 
 ## Getting started
 
-Set up the backend and the worker first, including the database, its migrations and each app's `.env`: the suite starts both apps, and each one reads its own `.env`. Every sample goes through Claude (classification, plus OCR for the scanned PDF and the image), and Ask calls it from the backend, so both apps' `.env` need a valid `ANTHROPIC_API_KEY`; a run costs a few cents. Then run from this directory:
+Set up the backend and the worker first, each with its own `.env` and a valid `ANTHROPIC_API_KEY`: the suite starts both apps, and every sample goes through Claude, so a run costs a few cents. Then run from this directory:
 
 ```bash
 npm test
@@ -14,7 +14,7 @@ All scripts are in `package.json`.
 
 ## How it works
 
-`npm test` first wipes the test database (the backend's `npm run test:setup`), so jobs left over from other test runs don't hold up the worker. Then each test:
+`npm test` first wipes the database the tests use (the backend's `npm run test:setup`), so jobs left over from other test runs don't hold up the worker. Then each test:
 
 1. **Starts** the backend and the worker with their own `npm start`, which builds them first. Both get one fresh temporary storage directory, and the backend gets a free port, so a running dev server doesn't get in the way.
 2. **Waits** until the backend answers `GET /health`.

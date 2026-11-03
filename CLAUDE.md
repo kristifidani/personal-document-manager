@@ -9,11 +9,11 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first: make the changes and summarize them; the user stages and commits. Approval covers only the action it names; agreeing to a plan is not approval to commit.
 - There is no fixed roadmap. After a ticket's PR is merged, recommend what to do next and let the user decide the next step and its size.
 - Treat a review comment as a claim to verify, not an instruction: say which comments you agree with and why before changing code.
-- Before a PR is merged, `npm run check` passes in every app it touches, and its whole diff against `main` gets one last review: anything missed, unused or simpler, and every fact it writes searched for across the repo, so each still has one home (see Where information lives). Report the findings.
+- Before a PR is merged, `npm run check` passes in every app it touches, and its whole diff against `main` gets one last review: anything missed, unused or simpler, and every fact it writes searched for across the repo, so each still has one home (see Where information lives). In a cleanup PR, docs and instruction files shrink overall, and the PR gives a reason for each line it adds. Report the findings.
 
 ## Decision-making rules
 
-- Don't invent library behavior, API shapes, or config values — check the actual file in the repo instead of assuming. If something genuinely doesn't exist yet (a file, a command, a dependency), say so rather than describing it as if it's already there.
+- Don't invent library behavior, API shapes or config values: check the repo or the docs. If something doesn't exist yet (a file, a command, a dependency), say so.
 - If a request conflicts with an established repository decision, including the architecture in [README.md](README.md), say so explicitly instead of quietly working around it or picking a side.
 - State assumptions out loud when a request is ambiguous, instead of silently picking one interpretation.
 
@@ -30,12 +30,12 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Testing
 
-- Integration tests (on `node:test`) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. They run against the real database, storage directory and Claude API. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
-- Tests never touch dev data: each app's `test/helper.ts` loads its `.env.test` (the test database and storage), so every test file that reaches either imports it. `npm test` first migrates and wipes them (the backend's `test:setup`), then runs files one at a time (`--test-concurrency=1`), since they share one database and job queue. A single-file run (`node --test -r ts-node/register <file>`) skips the wipe; run `npm run test:setup` first when it needs a clean slate.
+- Integration tests (on `node:test`) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
+- Tests use their own database and storage: each app's `test/helper.ts` loads its `.env.test`, so every test file that reaches either imports it. A `DATABASE_URL` or `STORAGE_DIR` already set in the shell wins, which is how CI sets its own. `npm test` first migrates and wipes them (the backend's `test:setup`), then runs files one at a time (`--test-concurrency=1`), since they share one database and job queue. A single-file run (`node --test -r ts-node/register <file>`) skips the wipe; run `npm run test:setup` first when it needs a clean slate.
 - A test's input matches what the code under test reads. A file comes from the root `samples/` folder (shared with `requests.http`), or is built in code only when it must be a placeholder or deliberately broken. Rows are inserted with made-up text written for the test.
 - No mocks of the database, storage or Claude. `t.mock` is only for a failure that can't be produced for real (the database going down), and a spy may wrap the real function to observe it.
 - Tests that call Claude use the developer's `ANTHROPIC_API_KEY`. Keep those calls few and small, since each run costs money.
-- A flow that spans apps (upload, then the worker processes the job) belongs in an end-to-end test in `apps/e2e`, not in either app's integration tests. End-to-end tests are black box, with no mocks and no inserted rows: they start each app with its own `npm start`, upload samples and go through the HTTP API only, never importing from an app or querying the database.
+- A flow that spans apps (upload, then the worker processes the job) belongs in an end-to-end test in `apps/e2e`, not in either app's integration tests. End-to-end tests are black box: no mocks, no inserted rows, only the HTTP API.
 - Every new or changed behaviour ships with a test in the same PR, including its failure paths. A bug fix ships with a test that fails without the fix.
 - One test per behaviour, named after it. When a change adds an effect to an existing action, extend that action's test instead of adding a second one.
 - A new action gets its own test and reuses earlier behaviour as setup through a helper, never by copying it.
@@ -87,8 +87,8 @@ Each fact has exactly one home, in code, comments, docs and instruction files al
 - Before writing a fact, search the repo for it (grep a key term). If it has a home, link to it or leave it out; if the new place is the better home, move it there.
 - Every CLAUDE.md loads its README (`@README.md`), so a CLAUDE.md never repeats its README, and a rule shared by every app lives in the root CLAUDE.md only.
 
-- **Code comments**: how and why each piece of code behaves as it does. The end-to-end flow belongs to the app README; don't restate it.
-- **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
+- **Code comments**: how and why each piece of code behaves as it does. The end-to-end flow belongs to the app README.
+- **`.env.example`**: what each environment variable means.
 - **Root README**: product, architecture and major decisions — high level only.
 - **App READMEs**: how a human sets up, runs and manually tests that app, and how it works end to end (the flow between its modules and what happens on failure); `package.json` is the command reference.
 - **CLAUDE.md**: rules an agent can't infer from the code. Keep the root file around 100–120 lines: a new rule replaces or merges with an old one where it can.
