@@ -9,7 +9,6 @@ import {
 /** Long enough for any real question, short enough to keep the request small. */
 const MAX_QUESTION_LENGTH = 1000
 
-/** The error this route throws on purpose; `src/plugins/error-handler.ts` sends it to the client. */
 const AskFailedError = createError(
   'ASK_FAILED',
   'Could not answer the question, try again later',

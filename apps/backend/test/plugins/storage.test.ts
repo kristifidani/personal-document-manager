@@ -4,8 +4,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
-import type { TestContext } from 'node:test'
-import { test } from 'node:test'
+import { test, type TestContext } from 'node:test'
 import * as assert from 'node:assert'
 import env from '../../src/plugins/env'
 import storage from '../../src/plugins/storage'
@@ -15,7 +14,7 @@ function build(t: TestContext) {
   return buildPlugins(t, env, storage)
 }
 
-test('save() creates the storage directory, writes the file and hashes it', async (t) => {
+test('save() writes the file and returns its path, size and hash', async (t) => {
   const fastify = await build(t)
   const id = randomUUID()
   const content = Buffer.from('hello world')
@@ -29,9 +28,10 @@ test('save() creates the storage directory, writes the file and hashes it', asyn
     createHash('sha256').update(content).digest('hex')
   )
 
-  const filePath = join(fastify.config.STORAGE_DIR, id)
-  assert.ok(existsSync(filePath))
-  assert.deepStrictEqual(await readFile(filePath), content)
+  assert.deepStrictEqual(
+    await readFile(join(fastify.config.STORAGE_DIR, id)),
+    content
+  )
 })
 
 test('remove() deletes the file', async (t) => {

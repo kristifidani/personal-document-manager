@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "fastify start -w --ignore-watch='/storage(/|$)' -P -r ts-node/register src/app.ts",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "start": "npm run build && fastify start dist/app.js",
     "test": "npm run test:setup && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
     "typecheck": "tsc -p test/tsconfig.json",

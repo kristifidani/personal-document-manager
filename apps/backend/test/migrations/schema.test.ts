@@ -1,4 +1,4 @@
-/** Verifies the schema our migrations produce (not the migration tool). Assumes `npm run migrate:up` already ran against `DATABASE_URL`. */
+/** Verifies the schema our migrations produce (not the migration tool). */
 import { randomBytes } from 'node:crypto'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
@@ -29,8 +29,17 @@ const CHECK_VIOLATION = '23514'
 const FOREIGN_KEY_VIOLATION = '23503'
 const UNIQUE_VIOLATION = '23505'
 
-function codeOf(err: unknown) {
-  return (err as DatabaseError).code
+/** Asserts `write` fails on a constraint with SQLSTATE `code`. */
+function assertViolates(
+  write: Promise<unknown>,
+  code: string,
+  message?: string
+) {
+  return assert.rejects(
+    write,
+    (err: unknown) => (err as DatabaseError).code === code,
+    message
+  )
 }
 
 /** Asserts the table has exactly these columns, each with the given `data_type`. */
@@ -73,19 +82,16 @@ test('documents table has the expected columns, types and defaults', async (t) =
 test('documents.size_bytes rejects negative values', async (t) => {
   const app = await build(t)
 
-  await assert.rejects(
-    insertDocument(app, { size_bytes: -1 }),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
-  )
+  await assertViolates(insertDocument(app, { size_bytes: -1 }), CHECK_VIOLATION)
 })
 
 test('documents.content_sha256 rejects anything but a lowercase hex SHA-256', async (t) => {
   const app = await build(t)
 
   for (const hash of ['not-a-hash', 'AB'.repeat(32), 'ab'.repeat(31)]) {
-    await assert.rejects(
+    await assertViolates(
       insertDocument(app, { content_sha256: hash }),
-      (err: unknown) => codeOf(err) === CHECK_VIOLATION,
+      CHECK_VIOLATION,
       hash
     )
   }
@@ -96,9 +102,9 @@ test('documents.content_sha256 is unique', async (t) => {
   const hash = randomBytes(32).toString('hex')
   await insertDocument(app, { content_sha256: hash })
 
-  await assert.rejects(
+  await assertViolates(
     insertDocument(app, { content_sha256: hash }),
-    (err: unknown) => codeOf(err) === UNIQUE_VIOLATION
+    UNIQUE_VIOLATION
   )
 })
 
@@ -134,9 +140,9 @@ test('documents rejects a classification with only some fields set', async (t) =
   const app = await build(t)
   const documentId = await insertDocument(app)
 
-  await assert.rejects(
+  await assertViolates(
     classify(app, documentId, { ...CLASSIFICATION, summary: null }),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })
 
@@ -144,9 +150,9 @@ test('documents.document_type rejects unknown types', async (t) => {
   const app = await build(t)
   const documentId = await insertDocument(app)
 
-  await assert.rejects(
+  await assertViolates(
     classify(app, documentId, { ...CLASSIFICATION, document_type: 'bogus' }),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })
 
@@ -172,12 +178,12 @@ test('jobs.status rejects values outside the known set', async (t) => {
 
   const documentId = await insertDocument(app)
 
-  await assert.rejects(
+  await assertViolates(
     app.pg.query(
       'insert into jobs (document_id, job_type, status) values ($1, $2, $3)',
       [documentId, 'extract', 'bogus']
     ),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })
 
@@ -186,12 +192,12 @@ test('jobs.error is rejected on a job that has not failed', async (t) => {
 
   const documentId = await insertDocument(app)
 
-  await assert.rejects(
+  await assertViolates(
     app.pg.query(
       'insert into jobs (document_id, job_type, error) values ($1, $2, $3)',
       [documentId, 'extract', 'some reason']
     ),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })
 
@@ -206,12 +212,12 @@ test('jobs.job_type accepts the worker types and rejects unknown ones', async (t
       [documentId, jobType]
     )
   }
-  await assert.rejects(
+  await assertViolates(
     app.pg.query('insert into jobs (document_id, job_type) values ($1, $2)', [
       documentId,
       'bogus'
     ]),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })
 
@@ -219,12 +225,12 @@ test('jobs.document_id requires an existing document', async (t) => {
   const app = await build(t)
   const nonExistentDocumentId = '00000000-0000-0000-0000-000000000000'
 
-  await assert.rejects(
+  await assertViolates(
     app.pg.query('insert into jobs (document_id, job_type) values ($1, $2)', [
       nonExistentDocumentId,
       'extract'
     ]),
-    (err: unknown) => codeOf(err) === FOREIGN_KEY_VIOLATION
+    FOREIGN_KEY_VIOLATION
   )
 })
 
@@ -257,28 +263,32 @@ test('deleting a document cascades to its jobs and pages', async (t) => {
   assert.strictEqual(remainingPages.length, 0)
 })
 
+/** The definition of index `name`, or `undefined` if it doesn't exist. */
+async function indexDefinition(app: App, name: string) {
+  const { rows } = await app.pg.query<{ indexdef: string }>(
+    `select indexdef from pg_indexes
+     where schemaname = current_schema() and indexname = $1`,
+    [name]
+  )
+  return rows[0]?.indexdef
+}
+
 test('jobs has an index on (status, created_at) for claiming pending jobs', async (t) => {
   const app = await build(t)
 
-  const { rows } = await app.pg.query<{ indexdef: string }>(
-    `select indexdef from pg_indexes
-     where schemaname = current_schema() and tablename = 'jobs' and indexname = 'jobs_status_created_at_idx'`
+  assert.match(
+    (await indexDefinition(app, 'jobs_status_created_at_idx')) ?? '',
+    /\(status, created_at\)/
   )
-
-  assert.strictEqual(rows.length, 1)
-  assert.match(rows[0]?.indexdef ?? '', /\(status, created_at\)/)
 })
 
 test("jobs has an index on document_id for reading a document's status", async (t) => {
   const app = await build(t)
 
-  const { rows } = await app.pg.query<{ indexdef: string }>(
-    `select indexdef from pg_indexes
-     where schemaname = current_schema() and tablename = 'jobs' and indexname = 'jobs_document_id_idx'`
+  assert.match(
+    (await indexDefinition(app, 'jobs_document_id_idx')) ?? '',
+    /\(document_id\)/
   )
-
-  assert.strictEqual(rows.length, 1)
-  assert.match(rows[0]?.indexdef ?? '', /\(document_id\)/)
 })
 
 test('document_pages table has the expected columns and types', async (t) => {
@@ -300,11 +310,11 @@ test('document_pages.page_number starts at 1', async (t) => {
 
   const documentId = await insertDocument(app)
 
-  await assert.rejects(
+  await assertViolates(
     app.pg.query(
       'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
       [documentId, 0, 'page text']
     ),
-    (err: unknown) => codeOf(err) === CHECK_VIOLATION
+    CHECK_VIOLATION
   )
 })

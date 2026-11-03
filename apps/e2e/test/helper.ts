@@ -2,18 +2,15 @@
 import * as assert from 'node:assert'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import type { TestContext } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 
 // the test database and storage, so tests never touch dev data; a variable already set (CI) wins
 process.loadEnvFile(join(__dirname, '../.env.test'))
-
-/** The repo's shared sample documents. */
-export const SAMPLES_DIR = join(__dirname, '../../../samples')
 
 /** Where each app's `npm start` runs: `apps/<name>`. */
 const APPS_DIR = join(__dirname, '..', '..')
@@ -179,12 +176,36 @@ interface Document {
   status: string
 }
 
+/** A file to upload. */
+interface UploadFile {
+  filename: string
+  mimeType: string
+  content: Buffer<ArrayBuffer>
+}
+
+/** The repo's shared sample documents. */
+const SAMPLES_DIR = join(__dirname, '../../../samples')
+
+const SAMPLE_MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.jpg': 'image/jpeg'
+}
+
+/** Reads a file from `samples/`, ready to upload. */
+export async function readSample(filename: string): Promise<UploadFile> {
+  const mimeType = SAMPLE_MIME_TYPES[extname(filename)]
+  if (!mimeType) throw new Error(`No mime type for sample ${filename}`)
+  return {
+    filename,
+    mimeType,
+    content: await readFile(join(SAMPLES_DIR, filename))
+  }
+}
+
 /** Uploads a file with `POST /documents` and expects it to be stored. */
 export async function upload(
   baseUrl: string,
-  filename: string,
-  mimeType: string,
-  content: Buffer<ArrayBuffer>
+  { filename, mimeType, content }: UploadFile
 ) {
   const form = new FormData()
   form.append('file', new Blob([content], { type: mimeType }), filename)
@@ -214,12 +235,7 @@ export function waitForStatus(baseUrl: string, id: string, statuses: string[]) {
  * Uploads a file and waits until the worker has finished with it.
  * @returns the document, with status `done` or `failed`.
  */
-export async function uploadAndWait(
-  baseUrl: string,
-  filename: string,
-  mimeType: string,
-  content: Buffer<ArrayBuffer>
-) {
-  const { id } = await upload(baseUrl, filename, mimeType, content)
+export async function uploadAndWait(baseUrl: string, file: UploadFile) {
+  const { id } = await upload(baseUrl, file)
   return waitForStatus(baseUrl, id, ['done', 'failed'])
 }

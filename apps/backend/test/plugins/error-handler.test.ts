@@ -3,14 +3,23 @@ import { test } from 'node:test'
 import * as assert from 'node:assert'
 import createError from '@fastify/error'
 import errorHandler from '../../src/plugins/error-handler'
+import type { TestContext } from 'node:test'
 import { buildPlugins } from '../helper'
 
-test('an error not built with @fastify/error returns a generic 500, whatever status it carries', async (t) => {
-  const fastify = await buildPlugins(t, errorHandler, async (instance) => {
+/** Builds the error handler with one route, `GET /throws`, that throws `error`. */
+function buildThrowing(t: TestContext, error: Error) {
+  return buildPlugins(t, errorHandler, async (instance) => {
     instance.get('/throws', () => {
-      throw Object.assign(new Error('internal detail'), { statusCode: 404 })
+      throw error
     })
   })
+}
+
+test('an error not built with @fastify/error returns a generic 500, whatever status it carries', async (t) => {
+  const fastify = await buildThrowing(
+    t,
+    Object.assign(new Error('internal detail'), { statusCode: 404 })
+  )
 
   const res = await fastify.inject({ url: '/throws' })
 
@@ -23,11 +32,7 @@ test('an error not built with @fastify/error returns a generic 500, whatever sta
 
 test('a 5xx error built with @fastify/error returns the generic 500 too', async (t) => {
   const InternalDetailError = createError('INTERNAL_DETAIL', 'internal detail')
-  const fastify = await buildPlugins(t, errorHandler, async (instance) => {
-    instance.get('/throws', () => {
-      throw new InternalDetailError()
-    })
-  })
+  const fastify = await buildThrowing(t, new InternalDetailError())
 
   const res = await fastify.inject({ url: '/throws' })
 
@@ -44,11 +49,7 @@ test('a 502 error built with @fastify/error returns its own code and message', a
     'Provider failed',
     502
   )
-  const fastify = await buildPlugins(t, errorHandler, async (instance) => {
-    instance.get('/throws', () => {
-      throw new ProviderFailedError()
-    })
-  })
+  const fastify = await buildThrowing(t, new ProviderFailedError())
 
   const res = await fastify.inject({ url: '/throws' })
 
