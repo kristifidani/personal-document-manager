@@ -147,8 +147,7 @@ function answerFromDocuments(
  */
 const ask: FastifyPluginAsync = async (fastify) => {
   /**
-   * `POST /ask`: picks the documents that answer `question`, then answers from their pages with citations.
-   * `answer` is `null` when no document is picked.
+   * `POST /ask`: answers `question` from the collection, citing the pages used (flow in the README).
    *
    * @throws 400 `question` is missing, empty or too long · 502 a Claude call failed
    */

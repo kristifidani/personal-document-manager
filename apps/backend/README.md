@@ -22,7 +22,7 @@ All scripts are in `package.json`. To try the API by hand, use [`requests.http`]
 **Upload** (`POST /documents`):
 
 1. The file streams to `STORAGE_DIR` under a new document id and is hashed on the way.
-2. The document and a `pending` `extract` job are inserted in one transaction. The [worker](../worker/README.md) takes it from there.
+2. The document and an `extract` job with status `pending` are inserted in one transaction. The [worker](../worker/README.md) takes it from there.
 3. If anything fails, including the same file uploaded twice (`409`), the stored file is removed, so nothing is left half-saved.
 
 A document has no status column: every read derives `status` from its jobs, so it follows the worker's progress on its own.

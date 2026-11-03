@@ -15,7 +15,7 @@ All scripts are in `package.json`.
 
 ## How it works
 
-The queue is the `jobs` table: the backend inserts a `pending` `extract` job on every upload, and the worker processes it. A successful `extract` queues the document's `classify` job. A job moves from `pending` to `processing` when the worker claims it, then to `done` when its handler succeeds or `failed` when it throws. It never moves back to `pending`, so each job is attempted at most once.
+The queue is the `jobs` table: the backend inserts an `extract` job with status `pending` on every upload, and the worker processes it. A successful `extract` queues the document's `classify` job. A job moves from `pending` to `processing` when the worker claims it, then to `done` when its handler succeeds or `failed` when it throws. It never moves back to `pending`, so each job is attempted at most once.
 
 The worker is one loop:
 

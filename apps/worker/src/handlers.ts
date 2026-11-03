@@ -26,7 +26,6 @@ async function readPdf(apiKey: string, file: Buffer) {
 
 /**
  * Saves the document's text, one `document_pages` row per page, and queues its `classify` job. Resolves the file's path like the backend's `src/plugins/storage.ts`.
- * PDFs go through `readPdf`, images straight to OCR.
  */
 async function extract(pool: Pool, config: Config, job: Job) {
   // load the document

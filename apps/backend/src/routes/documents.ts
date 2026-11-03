@@ -136,7 +136,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyMultipart)
 
   /**
-   * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and a pending `extract` job in one transaction. On any failure the stored file is removed.
+   * `POST /documents`: uploads one file as multipart/form-data and queues it for the worker (flow in the README).
    *
    * @throws 400 no file provided · 409 the same file is already uploaded · 413 file too large or more than one file · 415 unsupported mime type
    */
@@ -293,7 +293,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   )
 
   /**
-   * `DELETE /documents/:id`: deletes the document, its jobs and pages (they cascade) and its stored file. Allowed while a job runs: that job then fails or updates nothing, and its row is gone with the document.
+   * `DELETE /documents/:id`: deletes the document, its jobs and pages (they cascade) and its stored file, even while a job runs (see the README).
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */
