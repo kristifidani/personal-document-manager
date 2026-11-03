@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
+import fastifyMultipart from '@fastify/multipart'
 import type { FastifyPluginAsync } from 'fastify'
 import { DatabaseError } from 'pg'
 
@@ -131,6 +132,9 @@ const idParamsSchema = {
  * TODO: require auth once the auth model is decided.
  */
 const documents: FastifyPluginAsync = async (fastify) => {
+  // multipart parsing for the upload route only; it passes its own limits
+  await fastify.register(fastifyMultipart)
+
   /**
    * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and a pending `extract` job in one transaction. On any failure the stored file is removed.
    *

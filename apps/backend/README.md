@@ -17,7 +17,7 @@ All scripts are in `package.json`. To try the API by hand, use [`requests.http`]
 
 ## How it works
 
-`src/app.ts` loads every plugin in `src/plugins/` (config, database pool, storage, upload parsing, errors), then every route in `src/routes/`.
+`src/app.ts` loads every plugin in `src/plugins/` (config, database pool, storage, errors), then every route in `src/routes/`.
 
 **Upload** (`POST /documents`):
 
