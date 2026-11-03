@@ -90,4 +90,4 @@ select id, document_type, title, left(summary, 80) from documents;
 | Database down   | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`.                                                            |
 | Shutdown        | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                                                                                   |
 
-For a clean slate, `npm run data:reset` wipes all data and stored files. Run it after any test run too: tests leave pending jobs behind, and the worker would claim and fail them.
+For a clean slate, `npm run data:reset` wipes all dev data and stored files. Tests use their own database, so they don't affect it.

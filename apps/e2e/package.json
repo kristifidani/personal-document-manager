@@ -7,14 +7,14 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "npm run data:reset && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
+    "test": "npm run test:setup && node --test --test-concurrency=1 -r ts-node/register \"test/**/*.test.ts\"",
     "typecheck": "tsc",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip --directory ../..",
-    "data:reset": "npm run data:reset -w backend",
+    "test:setup": "npm run test:setup -w backend",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run knip && npm test"
   }
 }

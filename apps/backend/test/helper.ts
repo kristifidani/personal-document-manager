@@ -1,5 +1,6 @@
 /** Helpers shared by the backend's tests. */
 import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
 import type { TestContext } from 'node:test'
 import Fastify, { type FastifyPluginAsync } from 'fastify'
 // `app` autoloads plugins by path, so TypeScript doesn't see the `fastify.*` they add; importing them here gives `App` all of them
@@ -7,6 +8,9 @@ import '@fastify/postgres'
 import '../src/plugins/env'
 import '../src/plugins/storage'
 import app from '../src/app'
+
+// the test database and storage, so tests never touch dev data; a variable already set (CI) wins
+process.loadEnvFile(join(__dirname, '../.env.test'))
 
 /**
  * Builds a Fastify instance with only `plugins`, registered in order, without opening a port, and closes it when the test ends. Use it to test plugins in isolation.

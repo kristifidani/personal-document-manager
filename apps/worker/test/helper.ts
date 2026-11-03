@@ -10,6 +10,9 @@ import type { Classification } from '../src/classify'
 import { type Config, loadConfig } from '../src/env'
 import { withLogger } from '../src/logger'
 
+// the test database and storage, so tests never touch dev data; a variable already set (CI) wins
+process.loadEnvFile(join(__dirname, '../.env.test'))
+
 /** Loads the config and opens a pool to the test database, closed when the test ends. */
 export function connect(t: TestContext) {
   const config = loadConfig()

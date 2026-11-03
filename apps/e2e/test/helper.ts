@@ -9,6 +9,9 @@ import { join } from 'node:path'
 import type { TestContext } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 
+// the test database and storage, so tests never touch dev data; a variable already set (CI) wins
+process.loadEnvFile(join(__dirname, '../.env.test'))
+
 /** The repo's shared sample documents. */
 export const SAMPLES_DIR = join(__dirname, '../../../samples')
 
