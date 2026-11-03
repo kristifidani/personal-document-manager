@@ -36,7 +36,7 @@ GET {{baseUrl}}/documents/{{upload.response.body.$.id}}/pages
 ### Delete the document from the last upload request, with its pages and stored file; answers 204 with no body
 DELETE {{baseUrl}}/documents/{{upload.response.body.$.id}}
 
-### Ask a question: Claude picks the documents to read, then answers with the pages it cites. Only classified (`done`) documents count; upload every sample first.
+### Ask a question (how it works: README). Upload every sample first, and wait until they are `done`.
 # Expect: the tenancy agreement only, though the employment contract also has a notice period; two months, citing page 2
 POST {{baseUrl}}/ask
 Content-Type: application/json
