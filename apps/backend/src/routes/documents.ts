@@ -11,7 +11,6 @@ const MAX_SIZE_BYTES_BY_TYPE = new Map([
   ['image/png', 5 * 1024 * 1024]
 ])
 
-/** Errors these routes throw on purpose; `src/plugins/error-handler.ts` sends them to the client. */
 const NoFileProvidedError = createError(
   'NO_FILE_PROVIDED',
   'No file provided',

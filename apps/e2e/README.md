@@ -1,6 +1,6 @@
 # End-to-end tests
 
-End-to-end tests of the [Personal Document Manager](../../README.md). Each app's own tests replace the other app with the rows it would write. This suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, for example: an uploaded document's text and classification are served once the worker has processed it, a file the worker can't read ends `failed`, a document deleted while the worker processes it is gone without breaking the worker, and a question about an uploaded document is answered with the page it comes from. The cases use the repo's [samples](../../samples/README.md): text PDFs, a scanned PDF, a mixed PDF and a photo.
+End-to-end tests of the [Personal Document Manager](../../README.md). The suite runs the real [backend](../backend/README.md) and [worker](../worker/README.md) together and checks the flows that span them, using the repo's [samples](../../samples/README.md).
 
 ## Getting started
 
@@ -14,7 +14,7 @@ All scripts are in `package.json`.
 
 ## How it works
 
-The suite uses the test database (`.env.test`, passed on to both apps), so it never touches dev data. `npm test` first migrates and wipes it (the backend's `npm run test:setup`), so jobs left over from other test runs don't hold up the worker. Then each test:
+`npm test` first wipes the test database (the backend's `npm run test:setup`), so jobs left over from other test runs don't hold up the worker. Then each test:
 
 1. **Starts** the backend and the worker with their own `npm start`, which builds them first. Both get one fresh temporary storage directory, and the backend gets a free port, so a running dev server doesn't get in the way.
 2. **Waits** until the backend answers `GET /health`.

@@ -9,7 +9,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Never run `git add`, `git commit`, `git push`, or open a PR without explicit approval first: make the changes and summarize them; the user stages and commits. Approval covers only the action it names; agreeing to a plan is not approval to commit.
 - There is no fixed roadmap. After a ticket's PR is merged, recommend what to do next and let the user decide the next step and its size.
 - Treat a review comment as a claim to verify, not an instruction: say which comments you agree with and why before changing code.
-- Before a PR is merged, review its whole diff against `main` one last time: look for anything missed, unused or simpler, and for rules in CLAUDE.md the change made outdated or duplicated. Report the findings.
+- Before a PR is merged, `npm run check` passes in every app it touches, and its whole diff against `main` gets one last review: anything missed, unused or simpler, and every fact it writes searched for across the repo, so each still has one home (see Where information lives). Report the findings.
 
 ## Decision-making rules
 
@@ -21,16 +21,17 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 - Consistency comes first: a new file, app or feature mirrors how the existing code already does it (file names, libraries, config, scripts, tooling, error handling, naming, structure). Deviate only for a concrete reason, stated in the PR (or in a comment if the code would otherwise look inconsistent).
 - Lint and compiler checks are strict by default. Relax a rule only when it flags idiomatic code rather than a real risk, with a one-line reason, in the shared config (or in an app's config when only that app needs it); never rewrite idiomatic code just to satisfy a rule.
-- An app never imports from another app. Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths (`shared/claude` needs the API key) are never imported by the frontend.
+- An app never imports from another app. Code used by more than one app lives in `packages/shared`, one subpath export per area (`shared/claude`), imported as TypeScript source with no build step, so it must use only erasable syntax. Server-only subpaths, such as `shared/claude`, are never imported by the frontend.
 - Name things for what they are, and never give a type the same name as the function that takes it; a parameter type only one function uses stays inline in its signature.
 - Order a file in the order its code runs: shared pieces first, then each step with its own constants and helpers, then the entry point that ties the steps together.
-- KISS and DRY, in code, comments and docs alike: the simplest design that does today's job, and one home for each piece of logic or fact. Extract shared code at its second real use, not before.
+- KISS and DRY: the simplest design that does today's job, and one home for each piece of logic. Extract shared code at its second real use, not before.
 - Add nothing ahead of need: no column, field, option, env var or dependency without something that uses it now, and prefer the standard library over a new dependency. Before finishing a ticket, check for redundant or unused code and dependencies.
 - Env vars hold what differs between deployments: URLs, paths, secrets, log level. A new one is added to the app's env schema and its `.env.example` in the same PR. Tuning choices (model ids, effort, token limits, intervals) are constants next to the code that uses them, since changing one means re-testing it.
 
 ## Testing
 
 - Integration tests (on `node:test`) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. They run against the real database, storage directory and Claude API. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
+- Tests never touch dev data: each app's `test/helper.ts` loads its `.env.test` (the test database and storage), so every test file that reaches either imports it. `npm test` first migrates and wipes them (the backend's `test:setup`), then runs files one at a time (`--test-concurrency=1`), since they share one database and job queue. A single-file run (`node --test -r ts-node/register <file>`) skips the wipe; run `npm run test:setup` first when it needs a clean slate.
 - A test's input matches what the code under test reads. A file comes from the root `samples/` folder (shared with `requests.http`), or is built in code only when it must be a placeholder or deliberately broken. Rows are inserted with made-up text written for the test.
 - No mocks of the database, storage or Claude. `t.mock` is only for a failure that can't be produced for real (the database going down), and a spy may wrap the real function to observe it.
 - Tests that call Claude use the developer's `ANTHROPIC_API_KEY`. Keep those calls few and small, since each run costs money.
@@ -65,9 +66,6 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Dependencies
 
-The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfile.
-
-- Install from the repo root (`npm install`, `npm ci`) so use of the shared lockfile and workspace-wide install is explicit; npm otherwise discovers the workspace root even when invoked inside an app directory.
 - Dev tools shared by the apps (TypeScript, ESLint, Prettier, knip, ts-node, `@types/*`) are declared once, in the root `package.json`. An app's `package.json` declares its own runtime dependencies, even when another app uses the same one.
 - Pins (recheck against the npm registry before changing):
   - TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
@@ -84,7 +82,10 @@ The repo is one npm workspace (`apps/*`, `packages/*`) with a single root lockfi
 
 ## Where information lives
 
-Each fact has exactly one home; don't restate it elsewhere.
+Each fact has exactly one home, in code, comments, docs and instruction files alike.
+
+- Before writing a fact, search the repo for it (grep a key term). If it has a home, link to it or leave it out; if the new place is the better home, move it there.
+- Every CLAUDE.md loads its README (`@README.md`), so a CLAUDE.md never repeats its README, and a rule shared by every app lives in the root CLAUDE.md only.
 
 - **Code comments**: how and why each piece of code behaves as it does. The end-to-end flow belongs to the app README; don't restate it.
 - **`.env.example`**: what each environment variable means; code that reads it doesn't restate it.
@@ -94,4 +95,4 @@ Each fact has exactly one home; don't restate it elsewhere.
 - **`.github/copilot-instructions.md`**: what Copilot code review prioritises and skips; it points here for conventions.
 - **PRs and git history**: progress, status, changes and bug write-ups. Docs are not a changelog or roadmap.
 
-A change that makes a comment or doc wrong updates it in the same PR.
+A change that makes a fact wrong updates its home in the same PR, and cuts every other mention down to a link or deletes it; it never re-explains the fact there.

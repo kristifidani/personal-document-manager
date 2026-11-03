@@ -5,9 +5,9 @@ The rules are in `CLAUDE.md` (root and per app); architecture and its decisions 
 ## Prioritise
 
 - Correctness bugs and unhandled failure paths.
-- Queue and transaction safety: job claiming relies on `FOR UPDATE SKIP LOCKED`; flag work that could double-process or lose a job.
+- Queue and transaction safety: flag work that could double-process or lose a job.
 - Tests that would still pass without the change they are meant to cover.
-- Broken rules from the Testing, SQL, Security and privacy, and Where information lives sections of `CLAUDE.md`.
+- Broken rules from the Testing, SQL, Security and privacy, and Where information lives sections of `CLAUDE.md`, including a fact the diff writes that another file already states.
 - Changes that contradict a decision in `README.md` without saying so.
 
 ## Skip

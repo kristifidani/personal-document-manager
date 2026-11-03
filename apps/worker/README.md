@@ -33,7 +33,7 @@ The `classify` handler sends those pages to Claude as text and saves what it rea
 
 OCR sends the file to Anthropic and costs money: about €0.015 per dense page. Classification sends only the text: about €0.01 per document.
 
-The worker logs with [pino](https://getpino.io), like the backend: one JSON object per line from `npm start`, and readable lines from `npm run dev`. Every line of a job carries its `job_id`, and each Claude request (`OCR finished`, `Classification finished`) logs how long it took and the tokens it used. A document's text is never logged.
+The worker logs with [pino](https://getpino.io), like the backend: one JSON object per line from `npm start`, and readable lines from `npm run dev`. Every line of a job carries its `job_id`, and each Claude request (`OCR finished`, `Classification finished`) logs how long it took and the tokens it used.
 
 When something goes wrong:
 
@@ -90,4 +90,4 @@ select id, document_type, title, left(summary, 80) from documents;
 | Database down   | `docker compose -f ../../infra/db/docker-compose.yml stop postgres`, wait a few seconds, then `start postgres`; re-run a job. | `Polling failed` once per interval, not a flood; the re-run job ends `done`.                                                            |
 | Shutdown        | Ctrl+C in the worker's terminal.                                                                                              | Log `Worker stopped`.                                                                                                                   |
 
-For a clean slate, `npm run data:reset` wipes all dev data and stored files. Tests use their own database, so they don't affect it.
+For a clean slate, `npm run data:reset` wipes all dev data and stored files.
