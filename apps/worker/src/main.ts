@@ -1,3 +1,4 @@
+/** Worker entry point, run by `npm run dev` / `npm start`: loads the config, opens the database pool and polls for jobs until Ctrl+C or SIGTERM. */
 import { Pool } from 'pg'
 import { loadConfig } from './env'
 import { logger } from './logger'

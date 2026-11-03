@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Repo-wide, so it runs once: the apps share one lockfile, knip checks every workspace, and the files outside the workspaces (root, infra, .github, samples) are formatted once here.
+  # Repo-wide, so it runs once: the apps share one lockfile, knip checks every workspace, and the files outside the workspaces (root, infra, .github, samples, .vscode) are formatted once here.
   dependencies:
     runs-on: ubuntu-latest
     timeout-minutes: 10
