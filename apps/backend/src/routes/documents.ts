@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import createError from '@fastify/error'
-import { FastifyPluginAsync } from 'fastify'
+import fastifyMultipart from '@fastify/multipart'
+import type { FastifyPluginAsync } from 'fastify'
 import { DatabaseError } from 'pg'
 
 /** Accepted mime types and their upload limits; images stay under Claude's 10 MB (base64) image limit. MVP: add types when processing supports them. */
-const MAX_SIZE_BYTES = new Map([
+const MAX_SIZE_BYTES_BY_TYPE = new Map([
   ['application/pdf', 10 * 1024 * 1024],
   ['image/jpeg', 5 * 1024 * 1024],
   ['image/png', 5 * 1024 * 1024]
@@ -131,8 +132,11 @@ const idParamsSchema = {
  * TODO: require auth once the auth model is decided.
  */
 const documents: FastifyPluginAsync = async (fastify) => {
+  // multipart parsing for the upload route only; it passes its own limits
+  await fastify.register(fastifyMultipart)
+
   /**
-   * `POST /documents`: uploads one file as multipart/form-data. Saves it to storage, then inserts the document and a pending `extract` job in one transaction. On any failure the stored file is removed.
+   * `POST /documents`: uploads one file as multipart/form-data and queues it for the worker (flow in the README).
    *
    * @throws 400 no file provided · 409 the same file is already uploaded · 413 file too large or more than one file · 415 unsupported mime type
    */
@@ -145,13 +149,20 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       // read the first file part; the iterator must be consumed only once
-      const parts = request.files()
+      // the parser truncates a file past the largest type's limit and rejects a second file with a 413
+      // MVP: one file per request; raise `files` if bulk upload is added
+      const parts = request.files({
+        limits: {
+          fileSize: Math.max(...MAX_SIZE_BYTES_BY_TYPE.values()),
+          files: 1
+        }
+      })
       const first = await parts.next()
       if (first.done) throw new NoFileProvidedError()
       const file = first.value
 
       // validate type; drain the rejected stream so the request can finish
-      const maxSize = MAX_SIZE_BYTES.get(file.mimetype)
+      const maxSize = MAX_SIZE_BYTES_BY_TYPE.get(file.mimetype)
       if (maxSize === undefined) {
         file.file.resume()
         throw new UnsupportedMimeTypeError(file.mimetype)
@@ -266,7 +277,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       // check the document exists, so an unknown id is a 404, not an empty list
-      const { rows: documents } = await fastify.pg.query(
+      const { rows: documents } = await fastify.pg.query<{ id: string }>(
         'select id from documents where id = $1',
         [request.params.id]
       )
@@ -282,7 +293,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
   )
 
   /**
-   * `DELETE /documents/:id`: deletes the document, its jobs and pages (they cascade) and its stored file. Allowed while a job runs: that job then fails or updates nothing, and its row is gone with the document.
+   * `DELETE /documents/:id`: deletes the document, its jobs and pages (they cascade) and its stored file, even while a job runs (see the README).
    *
    * @throws 400 `id` is not a UUID · 404 no document with that id
    */

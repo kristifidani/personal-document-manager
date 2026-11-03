@@ -1,3 +1,4 @@
+/** Helpers shared by the worker's tests. */
 import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { randomBytes, randomUUID } from 'node:crypto'
@@ -44,7 +45,7 @@ interface TestFile {
   mimeType: string
 }
 
-/** Inserts a document as the backend's upload does and writes `file` to `STORAGE_DIR`. With `file: null`, the stored file is missing. */
+/** Inserts a document as the backend's upload does and writes `file` to `STORAGE_DIR`. With `file: null`, no file is stored: for a missing file, or a handler that never reads it. */
 export async function createDocument(
   pool: Pool,
   config: Config,

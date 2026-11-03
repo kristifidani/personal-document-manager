@@ -5,11 +5,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-// Type-only: see the matching note in test/migrations/schema.test.ts.
-import '@fastify/postgres'
-import '../../src/plugins/env'
-import '../../src/plugins/storage'
-import { type App, build } from '../helper'
+import { type App, build, type ErrorResponse } from '../helper'
 
 const BOUNDARY = 'test-boundary'
 
@@ -30,10 +26,6 @@ interface DocumentResponse {
   title: string | null
   summary: string | null
   status: string
-}
-
-interface ErrorResponse {
-  code: string
 }
 
 interface JobRow {
@@ -71,7 +63,7 @@ function postDocuments(app: App, ...parts: FilePart[]) {
 }
 
 /**
- * Spies on `storage.save()` to learn the storage path of a rejected upload,, which the error response omits.
+ * Spies on `storage.save()` to learn the storage path of a rejected upload, which the error response omits.
  * @returns a getter for the saved path, `undefined` until `save()` runs.
  */
 function spyOnSave(app: App) {
@@ -83,6 +75,23 @@ function spyOnSave(app: App) {
     return result
   }
   return () => savedPath
+}
+
+/** Reads the document through both read routes and asserts each returns exactly `expected`. */
+async function assertDocument(app: App, expected: DocumentResponse) {
+  const one = await app.inject({
+    method: 'GET',
+    url: `/documents/${expected.id}`
+  })
+  assert.deepStrictEqual(one.json(), expected)
+
+  const list = await app.inject({ method: 'GET', url: '/documents' })
+  assert.deepStrictEqual(
+    list
+      .json<DocumentResponse[]>()
+      .find((document) => document.id === expected.id),
+    expected
+  )
 }
 
 test('POST /documents stores the file and enqueues a job, and GET /documents/:id returns it', async (t) => {
@@ -160,6 +169,19 @@ test('POST /documents with an unsupported mime type returns 415 and creates noth
   assert.strictEqual(res.json<ErrorResponse>().code, 'UNSUPPORTED_MIME_TYPE')
   // the row is inserted only after the file is saved, so no save means no row
   assert.strictEqual(savedPath(), undefined)
+})
+
+test("POST /documents accepts a file of exactly its type's limit", async (t) => {
+  const app = await build(t)
+  // well past the parser's 1 MB default, so this fails if the route's limits aren't applied
+  const limit = 10 * 1024 * 1024
+  const content = Buffer.alloc(limit, 'a')
+  content.write(randomUUID())
+
+  const res = await postDocuments(app, pdf('max.pdf', content))
+
+  assert.strictEqual(res.statusCode, 201)
+  assert.strictEqual(res.json<DocumentResponse>().size_bytes, limit)
 })
 
 test('POST /documents with an oversized file returns 413 and cleans up', async (t) => {
@@ -253,23 +275,6 @@ test('GET /documents lists newest first', async (t) => {
   assert.ok(newerIndex !== -1, 'expected the newer document to be listed')
   assert.ok(newerIndex < ids.indexOf(older.id))
 })
-
-/** Reads the document through both read routes and asserts each returns exactly `expected`. */
-async function assertDocument(app: App, expected: DocumentResponse) {
-  const one = await app.inject({
-    method: 'GET',
-    url: `/documents/${expected.id}`
-  })
-  assert.deepStrictEqual(one.json(), expected)
-
-  const list = await app.inject({ method: 'GET', url: '/documents' })
-  assert.deepStrictEqual(
-    list
-      .json<DocumentResponse[]>()
-      .find((document) => document.id === expected.id),
-    expected
-  )
-}
 
 test("a document's status follows its job, without the job's error", async (t) => {
   const app = await build(t)

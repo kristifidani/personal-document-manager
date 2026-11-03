@@ -1,5 +1,5 @@
 import createError from '@fastify/error'
-import { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
+import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
 import {
   requestCitedAnswer,
   requestJson,
@@ -9,7 +9,7 @@ import {
 /** Long enough for any real question, short enough to keep the request small. */
 const MAX_QUESTION_LENGTH = 1000
 
-/** Errors this route throws on purpose; `src/plugins/error-handler.ts` sends them to the client. */
+/** The error this route throws on purpose; `src/plugins/error-handler.ts` sends it to the client. */
 const AskFailedError = createError(
   'ASK_FAILED',
   'Could not answer the question, try again later',
@@ -147,8 +147,7 @@ function answerFromDocuments(
  */
 const ask: FastifyPluginAsync = async (fastify) => {
   /**
-   * `POST /ask`: picks the documents that answer `question`, then answers from their pages with citations.
-   * `answer` is `null` when no document is picked.
+   * `POST /ask`: answers `question` from the collection, citing the pages used (flow in the README).
    *
    * @throws 400 `question` is missing, empty or too long · 502 a Claude call failed
    */

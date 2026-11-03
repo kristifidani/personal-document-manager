@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="250" viewBox="0 0 800 250" role="img" aria-label="Architecture: the frontend calls the backend over REST; the backend and the worker share Postgres and call the Claude API">
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #24292f; text-anchor: middle; }
+    .title { font-size: 15px; font-weight: 600; }
+    .sub { font-size: 12px; fill: #57606a; }
+    .label { font-size: 12px; fill: #57606a; }
+    .box { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1.5; }
+    .line { stroke: #8c959f; stroke-width: 1.5; fill: none; }
+    .head { fill: #8c959f; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+      .sub, .label { fill: #9198a1; }
+      .box { fill: #161b22; stroke: #6e7681; }
+      .line { stroke: #6e7681; }
+      .head { fill: #6e7681; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path class="head" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <!-- boxes -->
+  <rect class="box" x="20" y="30" width="150" height="60" rx="8"/>
+  <text class="title" x="95" y="56">Frontend</text>
+  <text class="sub" x="95" y="75">React + Vite</text>
+
+  <rect class="box" x="270" y="30" width="170" height="60" rx="8"/>
+  <text class="title" x="355" y="56">Backend</text>
+  <text class="sub" x="355" y="75">Node + Fastify</text>
+
+  <rect class="box" x="560" y="30" width="170" height="60" rx="8"/>
+  <text class="title" x="645" y="65">Postgres</text>
+
+  <rect class="box" x="270" y="170" width="170" height="60" rx="8"/>
+  <text class="title" x="355" y="205">Claude API</text>
+
+  <rect class="box" x="560" y="170" width="170" height="60" rx="8"/>
+  <text class="title" x="645" y="196">Worker</text>
+  <text class="sub" x="645" y="215">Node</text>
+
+  <!-- arrows -->
+  <line class="line" x1="170" y1="60" x2="268" y2="60" marker-end="url(#arrow)"/>
+  <text class="label" x="219" y="52">REST</text>
+
+  <line class="line" x1="440" y1="60" x2="558" y2="60" marker-end="url(#arrow)"/>
+  <text class="label" x="499" y="52">documents, jobs</text>
+
+  <line class="line" x1="355" y1="90" x2="355" y2="168" marker-end="url(#arrow)"/>
+  <text class="label" x="378" y="134">Ask</text>
+
+  <line class="line" x1="560" y1="200" x2="442" y2="200" marker-end="url(#arrow)"/>
+  <text class="label" x="501" y="192">OCR, classify</text>
+
+  <line class="line" x1="645" y1="170" x2="645" y2="92" marker-end="url(#arrow)"/>
+  <text class="label" x="700" y="127">claim jobs,</text>
+  <text class="label" x="700" y="142">save results</text>
+</svg>

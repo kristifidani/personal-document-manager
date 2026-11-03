@@ -26,20 +26,13 @@ The goal: find and understand personal information without navigating a pile of 
 
 A modular monolith split by _workload_, not by microservice. Fast, synchronous work lives in the Node API; slow per-document work runs in a separate Node worker.
 
-```mermaid
-flowchart LR
-    UI["Frontend<br/>React + Vite"] -->|REST| API["Backend<br/>Node + Fastify"]
-    API -->|"CRUD, search, Ask"| DB[("Postgres")]
-    API -->|"enqueue job"| DB
-    W["Worker<br/>Node"] -->|"claim job"| DB
-    W -->|"text, classification"| DB
-```
+![Architecture: the frontend calls the backend over REST; the backend and the worker share Postgres and call the Claude API](docs/architecture.svg)
 
 | Component   | Path                                     | Responsibility                                                                                        |
 | ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Backend     | [`apps/backend`](apps/backend/README.md) | CRUD, auth, search and the synchronous Ask/RAG endpoint. Fastify + TypeScript.                        |
+| Backend     | [`apps/backend`](apps/backend/README.md) | Upload, list, read and delete documents, and the synchronous Ask endpoint. Fastify + TypeScript.      |
 | Worker      | [`apps/worker`](apps/worker/README.md)   | Async pipeline: text extraction (OCR through Claude when needed), then classification through Claude. |
-| Frontend    | `apps/frontend`                          | React + Vite UI.                                                                                      |
+| Frontend    | `apps/frontend`                          | React + Vite UI. Not started.                                                                         |
 | Shared code | [`packages/shared`](packages/shared)     | Code and types used by more than one app.                                                             |
 | E2E tests   | [`apps/e2e`](apps/e2e/README.md)         | Runs the backend and worker as real processes and checks flows that span them.                        |
 

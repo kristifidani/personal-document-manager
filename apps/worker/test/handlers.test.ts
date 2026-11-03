@@ -206,11 +206,7 @@ const INVOICE_PAGES = [
 
 test('classify saves what Claude reads from the pages, replacing an earlier result', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(
-    pool,
-    config,
-    sample('employment-contract.pdf')
-  )
+  const documentId = await createDocument(pool, config, null)
   await savePages(pool, documentId, CONTRACT_PAGES)
   // a result from an earlier run
   await pool.query(
@@ -235,11 +231,7 @@ test('classify saves what Claude reads from the pages, replacing an earlier resu
 
 test('classify summarises a document in another language in English', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(
-    pool,
-    config,
-    sample('employment-contract.pdf')
-  )
+  const documentId = await createDocument(pool, config, null)
   await savePages(pool, documentId, INVOICE_PAGES)
 
   await classify(pool, config, documentId)
@@ -252,11 +244,7 @@ test('classify summarises a document in another language in English', async (t) 
 
 test('classify rejects a document with no text', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(
-    pool,
-    config,
-    sample('employment-contract.pdf')
-  )
+  const documentId = await createDocument(pool, config, null)
   await savePages(pool, documentId, ['', '  \n'])
 
   // an invalid key fails any request, so the message proves none was made
@@ -269,11 +257,7 @@ test('classify rejects a document with no text', async (t) => {
 
 test('classify rejects when the request fails', async (t) => {
   const { pool, config } = connect(t)
-  const documentId = await createDocument(
-    pool,
-    config,
-    sample('employment-contract.pdf')
-  )
+  const documentId = await createDocument(pool, config, null)
   await savePages(pool, documentId, CONTRACT_PAGES)
 
   await assert.rejects(
@@ -286,7 +270,7 @@ test('classify rejects when the request fails', async (t) => {
   )
 })
 
-test('rejects an unknown job type', async (t) => {
+test('handleJob rejects an unknown job type', async (t) => {
   const { pool, config } = connect(t)
 
   await assert.rejects(

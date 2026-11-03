@@ -15,16 +15,7 @@ All scripts are in `package.json`.
 
 ## How it works
 
-The queue is the `jobs` table: the backend inserts a `pending` `extract` job on every upload, and the worker processes it. A successful `extract` queues the document's `classify` job. A job's `status` only moves forward, never back to `pending`, so each job is attempted at most once:
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> pending: upload or extract queues it
-    pending --> processing: worker claims it
-    processing --> done: handler succeeds
-    processing --> failed: handler throws
-```
+The queue is the `jobs` table: the backend inserts an `extract` job with status `pending` on every upload, and the worker processes it. A successful `extract` queues the document's `classify` job. A job moves from `pending` to `processing` when the worker claims it, then to `done` when its handler succeeds or `failed` when it throws. It never moves back to `pending`, so each job is attempted at most once.
 
 The worker is one loop:
 
@@ -46,17 +37,18 @@ The worker logs with [pino](https://getpino.io), like the backend: one JSON obje
 
 When something goes wrong:
 
-| Situation                                        | What the worker does                                                                                   |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| A handler throws (missing file, unknown type, …) | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.               |
-| OCR fails (network, rate limit, bad key)         | The SDK retries network errors, 429 and 5xx twice; then the job is `failed` with `OCR request failed`. |
-| OCR stops early or returns the wrong page count  | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
-| Classification fails or stops early              | Same retries as OCR; then `failed` with `Classification request failed` or `… stopped early: …`.       |
-| A document has no text to classify               | The `classify` job is `failed` with `Document has no text to classify`, and no request is made.        |
-| The document is deleted mid-job                  | The handler fails or updates nothing; the job's row is gone with the document, so nothing is recorded. |
-| The database is unreachable                      | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
-| Ctrl+C or SIGTERM                                | Stops polling, lets the current job finish, then exits.                                                |
-| The worker crashes mid-job                       | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
+| Situation                                         | What the worker does                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| A handler throws (missing file, unknown type, …)  | Marks the job `failed`, saves the error's message in `jobs.error`, logs it and moves on.               |
+| OCR fails (network, rate limit, bad key)          | The SDK retries network errors, 429 and 5xx twice; then the job is `failed` with `OCR request failed`. |
+| OCR stops early or returns the wrong page count   | The job is `failed` with `OCR stopped early: …` or `OCR returned N pages, expected M`.                 |
+| Classification fails or stops early               | Same retries as OCR; then `failed` with `Classification request failed` or `… stopped early: …`.       |
+| A document has no text to classify                | The `classify` job is `failed` with `Document has no text to classify`, and no request is made.        |
+| The document is deleted mid-job                   | The handler fails or updates nothing; the job's row is gone with the document, so nothing is recorded. |
+| The database is unreachable                       | Logs `Polling failed`, sleeps `POLL_INTERVAL_MS` and tries again until the database is back.           |
+| The database drops right after a handler succeeds | Recording the outcome fails, so the job stays `processing`, as after a crash.                          |
+| Ctrl+C or SIGTERM                                 | Stops polling, lets the current job finish, then exits.                                                |
+| The worker crashes mid-job                        | The job stays `processing`; nothing picks it up again (see the `MVP:` note on `claimJob`).             |
 
 ## Testing by hand
 

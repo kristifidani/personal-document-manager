@@ -1,11 +1,7 @@
 /** Tests for the `/ask` route against a real database and the real Claude API. */
-import { randomBytes } from 'node:crypto'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-// Type-only: see the matching note in test/migrations/schema.test.ts.
-import '@fastify/postgres'
-import '../../src/plugins/env'
-import { type App, build } from '../helper'
+import { type App, build, type ErrorResponse, insertDocument } from '../helper'
 
 interface AskResponse {
   documents: { document_id: string; title: string; document_type: string }[]
@@ -13,36 +9,13 @@ interface AskResponse {
   citations: { document_id: string; page: number }[]
 }
 
-interface ErrorResponse {
-  code: string
-}
-
-/** A document's classification columns, as the worker's classify job sets them. */
-interface Classification {
-  document_type: string
-  title: string
-  summary: string
-}
-
 /** Inserts a classified document with its pages, as upload and the worker would leave it, and returns its id. */
 async function insertClassified(
   app: App,
-  classification: Classification,
+  classification: { document_type: string; title: string; summary: string },
   pages: string[] = []
 ) {
-  const { rows } = await app.pg.query<{ id: string }>(
-    `insert into documents (filename, mime_type, size_bytes, storage_path, content_sha256, document_type, title, summary)
-     values ('test.pdf', 'application/pdf', 100, 'test-path', $1, $2, $3, $4)
-     returning id`,
-    [
-      randomBytes(32).toString('hex'),
-      classification.document_type,
-      classification.title,
-      classification.summary
-    ]
-  )
-  const id = rows[0]?.id
-  if (!id) throw new Error('Inserting the document returned no row')
+  const id = await insertDocument(app, classification)
   for (const [index, text] of pages.entries()) {
     await app.pg.query(
       'insert into document_pages (document_id, page_number, text) values ($1, $2, $3)',
@@ -52,8 +25,8 @@ async function insertClassified(
   return id
 }
 
-function postAsk(app: App, body: unknown) {
-  return app.inject({ method: 'POST', url: '/ask', payload: body as object })
+function postAsk(app: App, body: object) {
+  return app.inject({ method: 'POST', url: '/ask', payload: body })
 }
 
 // Earlier test files leave classified documents in the database, so these tests only check their own rows.

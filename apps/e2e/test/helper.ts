@@ -1,3 +1,4 @@
+/** Helpers shared by the end-to-end tests: start and stop the apps, and drive the API. */
 import * as assert from 'node:assert'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
@@ -135,7 +136,7 @@ export async function waitFor<T>(
 }
 
 /**
- * Starts the backend and the worker on one fresh storage directory and a free port, waits until the backend answers, and stops both and removes the directory when the test ends.
+ * Starts the backend and the worker for one test and stops them when it ends (how, in the README).
  * @returns the backend's base URL.
  */
 export async function startStack(t: TestContext) {

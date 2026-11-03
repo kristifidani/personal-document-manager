@@ -8,7 +8,7 @@ import { buildPlugins } from '../helper'
 test('database connection accepts queries', async (t) => {
   const fastify = await buildPlugins(t, env, postgres)
 
-  const result = await fastify.pg.query<{ ok: number }>('SELECT 1 AS ok')
+  const result = await fastify.pg.query<{ ok: number }>('select 1 as ok')
 
   assert.strictEqual(result.rows[0]?.ok, 1)
 })

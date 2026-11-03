@@ -3,11 +3,10 @@ import { randomBytes } from 'node:crypto'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import type { DatabaseError } from 'pg'
-// Type-only: helper.ts loads plugins via autoload, so TypeScript doesn't see their `fastify.*` augmentations; each test file imports the ones it uses.
-import '@fastify/postgres'
-import { type App, build } from '../helper'
+import { type App, build, insertDocument } from '../helper'
 
-type Column = {
+/** One row of `information_schema.columns`. */
+interface Column {
   column_name: string
   data_type: string
   is_nullable: 'YES' | 'NO'
@@ -48,19 +47,6 @@ function assertColumnTypes(
   }
 }
 
-/** Inserts a document row directly, bypassing the API, and returns its id. The hash is random unless given, so rows never collide. */
-async function insertDocument(
-  app: App,
-  sizeBytes = 100,
-  contentSha256 = randomBytes(32).toString('hex')
-) {
-  const { rows } = await app.pg.query<{ id: string }>(
-    'insert into documents (filename, mime_type, size_bytes, storage_path, content_sha256) values ($1, $2, $3, $4, $5) returning id',
-    ['test.pdf', 'application/pdf', sizeBytes, 'test-path', contentSha256]
-  )
-  return rows[0]?.id
-}
-
 test('documents table has the expected columns, types and defaults', async (t) => {
   const app = await build(t)
   const columns = await columnsOf(app, 'documents')
@@ -88,7 +74,7 @@ test('documents.size_bytes rejects negative values', async (t) => {
   const app = await build(t)
 
   await assert.rejects(
-    insertDocument(app, -1),
+    insertDocument(app, { size_bytes: -1 }),
     (err: unknown) => codeOf(err) === CHECK_VIOLATION
   )
 })
@@ -98,7 +84,7 @@ test('documents.content_sha256 rejects anything but a lowercase hex SHA-256', as
 
   for (const hash of ['not-a-hash', 'AB'.repeat(32), 'ab'.repeat(31)]) {
     await assert.rejects(
-      insertDocument(app, 100, hash),
+      insertDocument(app, { content_sha256: hash }),
       (err: unknown) => codeOf(err) === CHECK_VIOLATION,
       hash
     )
@@ -108,10 +94,10 @@ test('documents.content_sha256 rejects anything but a lowercase hex SHA-256', as
 test('documents.content_sha256 is unique', async (t) => {
   const app = await build(t)
   const hash = randomBytes(32).toString('hex')
-  await insertDocument(app, 100, hash)
+  await insertDocument(app, { content_sha256: hash })
 
   await assert.rejects(
-    insertDocument(app, 100, hash),
+    insertDocument(app, { content_sha256: hash }),
     (err: unknown) => codeOf(err) === UNIQUE_VIOLATION
   )
 })
@@ -126,7 +112,7 @@ const CLASSIFICATION = {
 /** Sets a document's classification columns, as the worker's classify job does. */
 function classify(
   app: App,
-  documentId: string | undefined,
+  documentId: string,
   values: Record<string, unknown>
 ) {
   return app.pg.query(

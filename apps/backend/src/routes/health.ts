@@ -1,7 +1,7 @@
-import { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 
 /** `GET /health`: liveness check for deployments and monitoring. Returns `{ status: 'ok' }` while the process is serving; it does not check the database. */
-const health: FastifyPluginAsync = async (fastify): Promise<void> => {
+const health: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     '/health',
     {

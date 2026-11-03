@@ -1,6 +1,10 @@
 {
   "name": "personal-document-manager",
   "private": true,
+  "scripts": {
+    "format": "prettier --write \"*.{md,json,jsonc,mjs}\" infra .github samples .vscode",
+    "format:check": "prettier --check \"*.{md,json,jsonc,mjs}\" infra .github samples .vscode"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
