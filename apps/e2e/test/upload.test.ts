@@ -1,9 +1,7 @@
 /** End-to-end tests for the upload flow: the backend stores a document, the worker processes it, the backend serves the result. */
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import { appOutput, SAMPLES_DIR, startStack, uploadAndWait } from './helper'
+import { appOutput, readSample, startStack, uploadAndWait } from './helper'
 
 interface Page {
   page_number: number
@@ -13,7 +11,6 @@ interface Page {
 /** A sample, a pattern each of its pages must match (OCR output varies in spacing and case), and the type it is classified as. */
 interface Case {
   file: string
-  mimeType: string
   pages: RegExp[]
   documentType: string
 }
@@ -21,19 +18,16 @@ interface Case {
 const CASES: Case[] = [
   {
     file: 'employment-contract.pdf',
-    mimeType: 'application/pdf',
     pages: [/starts on 1 March 2026/, /three months notice/],
     documentType: 'contract'
   },
   {
     file: 'heating-invoice-scan.pdf',
-    mimeType: 'application/pdf',
     pages: [/rechnung\s*nr\.?\s*2026-1042/i, /01\.11\.2026/],
     documentType: 'invoice'
   },
   {
     file: 'cafe-receipt.jpg',
-    mimeType: 'image/jpeg',
     pages: [/total\s*gbp\s*8\.50/i],
     documentType: 'receipt'
   }
@@ -53,9 +47,7 @@ test("an uploaded document's text and classification are served once the worker 
     await t.test(sample.file, async () => {
       const document = await uploadAndWait(
         baseUrl,
-        sample.file,
-        sample.mimeType,
-        await readFile(join(SAMPLES_DIR, sample.file))
+        await readSample(sample.file)
       )
       assert.strictEqual(document.status, 'done', appOutput())
 
@@ -79,12 +71,11 @@ test("an uploaded document's text and classification are served once the worker 
 test('an uploaded file the worker cannot read ends failed, with no text or classification', async (t) => {
   const baseUrl = await startStack(t)
 
-  const document = await uploadAndWait(
-    baseUrl,
-    'broken.pdf',
-    'application/pdf',
-    Buffer.from('not a pdf')
-  )
+  const document = await uploadAndWait(baseUrl, {
+    filename: 'broken.pdf',
+    mimeType: 'application/pdf',
+    content: Buffer.from('not a pdf')
+  })
 
   assert.strictEqual(document.status, 'failed')
   assert.strictEqual(document.document_type, null)

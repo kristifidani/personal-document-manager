@@ -77,6 +77,17 @@ function spyOnSave(app: App) {
   return () => savedPath
 }
 
+/** Asserts a rejected upload left no row and no file; `path` is what `spyOnSave` saw saved. */
+async function assertNothingStored(app: App, path: string | undefined) {
+  assert.ok(path, 'expected storage.save to have been called')
+  const { rows } = await app.pg.query(
+    'select id from documents where storage_path = $1',
+    [path]
+  )
+  assert.strictEqual(rows.length, 0)
+  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+}
+
 /** Reads the document through both read routes and asserts each returns exactly `expected`. */
 async function assertDocument(app: App, expected: DocumentResponse) {
   const one = await app.inject({
@@ -203,14 +214,7 @@ test('POST /documents with an oversized file returns 413 and cleans up', async (
 
       assert.strictEqual(res.statusCode, 413)
       assert.strictEqual(res.json<ErrorResponse>().code, 'FILE_TOO_LARGE')
-      const path = savedPath()
-      assert.ok(path, 'expected storage.save to have been called')
-      const { rows } = await app.pg.query(
-        'select id from documents where storage_path = $1',
-        [path]
-      )
-      assert.strictEqual(rows.length, 0)
-      assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+      await assertNothingStored(app, savedPath())
     })
   }
 })
@@ -224,14 +228,7 @@ test('POST /documents with two file parts rejects and cleans up the first', asyn
   assert.strictEqual(res.statusCode, 413)
   // raised by `@fastify/multipart`, not by the route
   assert.strictEqual(res.json<ErrorResponse>().code, 'FST_FILES_LIMIT')
-  const path = savedPath()
-  assert.ok(path, 'expected storage.save to have been called')
-  const { rows } = await app.pg.query(
-    'select id from documents where storage_path = $1',
-    [path]
-  )
-  assert.strictEqual(rows.length, 0)
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+  await assertNothingStored(app, savedPath())
 })
 
 test('POST /documents with a file already uploaded returns 409 and stores nothing new', async (t) => {
@@ -247,14 +244,7 @@ test('POST /documents with a file already uploaded returns 409 and stores nothin
 
   assert.strictEqual(res.statusCode, 409)
   assert.strictEqual(res.json<ErrorResponse>().code, 'DUPLICATE_DOCUMENT')
-  const path = savedPath()
-  assert.ok(path, 'expected storage.save to have been called')
-  const { rows } = await app.pg.query(
-    'select id from documents where storage_path = $1',
-    [path]
-  )
-  assert.strictEqual(rows.length, 0)
-  assert.strictEqual(existsSync(join(app.config.STORAGE_DIR, path)), false)
+  await assertNothingStored(app, savedPath())
   // the first upload is untouched
   await assertDocument(app, first)
 })
@@ -352,30 +342,6 @@ test('a classified document returns its type, title and summary', async (t) => {
   await assertDocument(app, { ...document, ...classification })
 })
 
-test('GET /documents/:id for an unknown id returns 404', async (t) => {
-  const app = await build(t)
-
-  const res = await app.inject({
-    method: 'GET',
-    url: `/documents/${randomUUID()}`
-  })
-
-  assert.strictEqual(res.statusCode, 404)
-  assert.deepStrictEqual(res.json(), {
-    code: 'DOCUMENT_NOT_FOUND',
-    message: 'Document not found'
-  })
-})
-
-test('GET /documents/:id with a malformed id returns 400', async (t) => {
-  const app = await build(t)
-
-  const res = await app.inject({ method: 'GET', url: '/documents/not-a-uuid' })
-
-  assert.strictEqual(res.statusCode, 400)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
-})
-
 test('GET /documents/:id/pages returns the saved pages in page order', async (t) => {
   const app = await build(t)
   const document = (
@@ -413,30 +379,6 @@ test('GET /documents/:id/pages returns an empty list before any text is saved', 
 
   assert.strictEqual(res.statusCode, 200)
   assert.deepStrictEqual(res.json(), [])
-})
-
-test('GET /documents/:id/pages for an unknown id returns 404', async (t) => {
-  const app = await build(t)
-
-  const res = await app.inject({
-    method: 'GET',
-    url: `/documents/${randomUUID()}/pages`
-  })
-
-  assert.strictEqual(res.statusCode, 404)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'DOCUMENT_NOT_FOUND')
-})
-
-test('GET /documents/:id/pages with a malformed id returns 400', async (t) => {
-  const app = await build(t)
-
-  const res = await app.inject({
-    method: 'GET',
-    url: '/documents/not-a-uuid/pages'
-  })
-
-  assert.strictEqual(res.statusCode, 400)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
 })
 
 test('DELETE /documents/:id removes the document, its jobs, pages and file', async (t) => {
@@ -508,26 +450,42 @@ test("DELETE /documents/:id keeps the document when its file can't be removed", 
   assert.strictEqual(fetched.statusCode, 200)
 })
 
-test('DELETE /documents/:id for an unknown id returns 404', async (t) => {
+/** Every route that takes a document id, by method and the path after the id. */
+const ID_ROUTES = [
+  { method: 'GET', suffix: '' },
+  { method: 'GET', suffix: '/pages' },
+  { method: 'DELETE', suffix: '' }
+] as const
+
+test('every /documents/:id route returns 404 for an unknown id', async (t) => {
   const app = await build(t)
+  for (const { method, suffix } of ID_ROUTES) {
+    await t.test(`${method} /documents/:id${suffix}`, async () => {
+      const res = await app.inject({
+        method,
+        url: `/documents/${randomUUID()}${suffix}`
+      })
 
-  const res = await app.inject({
-    method: 'DELETE',
-    url: `/documents/${randomUUID()}`
-  })
-
-  assert.strictEqual(res.statusCode, 404)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'DOCUMENT_NOT_FOUND')
+      assert.strictEqual(res.statusCode, 404)
+      assert.deepStrictEqual(res.json(), {
+        code: 'DOCUMENT_NOT_FOUND',
+        message: 'Document not found'
+      })
+    })
+  }
 })
 
-test('DELETE /documents/:id with a malformed id returns 400', async (t) => {
+test('every /documents/:id route returns 400 for a malformed id', async (t) => {
   const app = await build(t)
+  for (const { method, suffix } of ID_ROUTES) {
+    await t.test(`${method} /documents/:id${suffix}`, async () => {
+      const res = await app.inject({
+        method,
+        url: `/documents/not-a-uuid${suffix}`
+      })
 
-  const res = await app.inject({
-    method: 'DELETE',
-    url: '/documents/not-a-uuid'
-  })
-
-  assert.strictEqual(res.statusCode, 400)
-  assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
+      assert.strictEqual(res.statusCode, 400)
+      assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
+    })
+  }
 })

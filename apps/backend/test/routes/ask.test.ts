@@ -175,12 +175,11 @@ test('POST /ask rejects an invalid body with 400', async (t) => {
   ]
 
   for (const { name, body } of cases) {
-    const res = await postAsk(app, body)
-    assert.strictEqual(res.statusCode, 400, name)
-    assert.strictEqual(
-      res.json<ErrorResponse>().code,
-      'FST_ERR_VALIDATION',
-      name
-    )
+    await t.test(name, async () => {
+      const res = await postAsk(app, body)
+
+      assert.strictEqual(res.statusCode, 400)
+      assert.strictEqual(res.json<ErrorResponse>().code, 'FST_ERR_VALIDATION')
+    })
   }
 })

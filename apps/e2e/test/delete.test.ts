@@ -1,11 +1,9 @@
 /** End-to-end test for deleting a document while the worker is processing it. */
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import {
   appOutput,
-  SAMPLES_DIR,
+  readSample,
   startStack,
   upload,
   uploadAndWait,
@@ -14,18 +12,10 @@ import {
 
 test('a document deleted while the worker processes it is gone, and the worker keeps working', async (t) => {
   const baseUrl = await startStack(t)
-  // a sample no other test uploads: data is reset once per run, so a shared one would be a duplicate
-  const content = await readFile(
-    join(SAMPLES_DIR, 'employment-contract-signed.pdf')
-  )
+  const file = await readSample('employment-contract-signed.pdf')
 
   // delete while a job runs; wherever the job is, the outcome must be the same
-  const { id } = await upload(
-    baseUrl,
-    'employment-contract-signed.pdf',
-    'application/pdf',
-    content
-  )
+  const { id } = await upload(baseUrl, file)
   await waitForStatus(baseUrl, id, ['processing'])
   const deleted = await fetch(`${baseUrl}/documents/${id}`, {
     method: 'DELETE'
@@ -35,11 +25,6 @@ test('a document deleted while the worker processes it is gone, and the worker k
   assert.strictEqual(fetched.status, 404)
 
   // the same file uploads again and the worker still finishes it
-  const again = await uploadAndWait(
-    baseUrl,
-    'employment-contract-signed.pdf',
-    'application/pdf',
-    content
-  )
+  const again = await uploadAndWait(baseUrl, file)
   assert.strictEqual(again.status, 'done', appOutput())
 })

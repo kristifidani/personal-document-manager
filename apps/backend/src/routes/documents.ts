@@ -11,7 +11,6 @@ const MAX_SIZE_BYTES_BY_TYPE = new Map([
   ['image/png', 5 * 1024 * 1024]
 ])
 
-/** Errors these routes throw on purpose; `src/plugins/error-handler.ts` sends them to the client. */
 const NoFileProvidedError = createError(
   'NO_FILE_PROVIDED',
   'No file provided',
@@ -38,7 +37,7 @@ const DocumentNotFoundError = createError(
   404
 )
 
-/** `documents` columns returned to the client. */
+/** A document as the routes return it: its `documents` columns plus the `status` derived from its jobs. */
 interface DocumentRow {
   id: string
   filename: string
@@ -257,8 +256,9 @@ const documents: FastifyPluginAsync = async (fastify) => {
         `select ${DOCUMENT_COLUMNS}, ${DOCUMENT_STATUS} from documents where id = $1`,
         [request.params.id]
       )
-      if (rows.length === 0) throw new DocumentNotFoundError()
-      return rows[0]
+      const document = rows[0]
+      if (!document) throw new DocumentNotFoundError()
+      return document
     }
   )
 
@@ -306,7 +306,7 @@ const documents: FastifyPluginAsync = async (fastify) => {
       }
     },
     async (request, reply) => {
-      // remove the file before committing: if removing or committing fails, the row stays and retrying the delete finishes it, so no file is left without its row
+      // remove the file inside the transaction: if that or the commit fails, the row stays and a retry finishes the delete, so a file never outlives its row
       await fastify.pg.transact(async (client) => {
         const { rows } = await client.query<{ storage_path: string }>(
           'delete from documents where id = $1 returning storage_path',

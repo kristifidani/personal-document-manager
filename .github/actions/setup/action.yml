@@ -9,6 +9,5 @@ runs:
         node-version: 24
         cache: npm
 
-    # From the root on purpose: inside an app directory, npm installs only that app's dependencies.
     - run: npm ci
       shell: bash
