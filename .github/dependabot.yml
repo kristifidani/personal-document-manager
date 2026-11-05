@@ -1,4 +1,5 @@
 # Monthly grouped dependency update PRs; the cooldown skips releases younger than a week.
+# npm majors are left out of the group, so each arrives as its own PR and gets its own review.
 
 version: 2
 updates:
@@ -12,6 +13,7 @@ updates:
     groups:
       npm:
         patterns: ['*']
+        update-types: ['minor', 'patch']
     # Pinned on purpose: see the root CLAUDE.md.
     ignore:
       - dependency-name: typescript

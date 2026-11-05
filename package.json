@@ -2,6 +2,7 @@
   "name": "personal-document-manager",
   "private": true,
   "scripts": {
+    "dev": "concurrently --names backend,worker,frontend --kill-others-on-fail \"npm run dev -w backend\" \"npm run dev -w worker\" \"npm run dev -w frontend\"",
     "format": "prettier --write \"*.{md,json,jsonc,mjs}\" infra .github samples .vscode",
     "format:check": "prettier --check \"*.{md,json,jsonc,mjs}\" infra .github samples .vscode"
   },
@@ -13,6 +14,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
+    "concurrently": "^10.0.6",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "knip": "^6.43.0",

@@ -30,7 +30,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 
 ## Testing
 
-- Integration tests (on `node:test`) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
+- Integration tests (on `node:test`; the frontend's exception is in its CLAUDE.md) test one app through its own interface: backend routes over HTTP (`app.inject`); plugins, the schema and the worker's functions directly. The apps share only the database, so the other app is replaced by the rows it would have written; a test never calls into another app.
 - Tests use their own database and storage: each app's `test/helper.ts` loads its `.env.test`, so every test file that reaches either imports it. A `DATABASE_URL` or `STORAGE_DIR` already set in the shell wins, which is how CI sets its own. `npm test` first migrates and wipes them (the backend's `test:setup`), then runs files one at a time (`--test-concurrency=1`), since they share one database and job queue. A single-file run (`node --test -r ts-node/register <file>`) skips the wipe; run `npm run test:setup` first when it needs a clean slate.
 - A test's input matches what the code under test reads. A file comes from the root `samples/` folder (shared with `requests.http`), or is built in code only when it must be a placeholder or deliberately broken. Rows are inserted with made-up text written for the test.
 - No mocks of the database, storage or Claude. `t.mock` is only for a failure that can't be produced for real (the database going down), and a spy may wrap the real function to observe it.
@@ -70,6 +70,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Pins (recheck against the npm registry before changing):
   - TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
   - `@types/node` follows the runtime major (see `engines` in each app).
+- A major update gets its own Dependabot PR. Before merging it, read the changelog, check how we use the package, and confirm every app resolves one version (`npm ls <package>`).
 
 ## Comments
 
