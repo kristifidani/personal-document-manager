@@ -70,6 +70,7 @@ Product scope, architecture and the reasoning behind each decision: @README.md
 - Pins (recheck against the npm registry before changing):
   - TypeScript is pinned `~6.0.x`: `typescript-eslint` declares peer `typescript >=4.8.4 <6.1.0`.
   - `@types/node` follows the runtime major (see `engines` in each app).
+- A major update gets its own Dependabot PR. Before merging it, read the changelog, check how we use the package, and confirm every app resolves one version (`npm ls <package>`).
 
 ## Comments
 
