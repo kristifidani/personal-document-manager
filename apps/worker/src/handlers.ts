@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
+// unpdf is ESM-only; this CommonJS worker loads it with require(), which Node supports for ESM since 22.12.
 import { extractText } from 'unpdf'
 import { classifyText } from './classify'
 import type { Config } from './env'
