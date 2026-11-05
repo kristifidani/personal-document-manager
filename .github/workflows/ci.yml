@@ -36,7 +36,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dir: [apps/backend, apps/worker, apps/e2e, packages/shared]
+        dir:
+          [apps/backend, apps/worker, apps/frontend, apps/e2e, packages/shared]
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -49,8 +50,11 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       # Typecheck already covers the type errors; this confirms the production build still emits. The e2e suite and the shared package have nothing to build.
-      - if: matrix.dir == 'apps/backend' || matrix.dir == 'apps/worker'
+      - if: matrix.dir == 'apps/backend' || matrix.dir == 'apps/worker' || matrix.dir == 'apps/frontend'
         run: npm run build
+      # The frontend's tests need no database or API key, so they run here instead of in the test job.
+      - if: matrix.dir == 'apps/frontend'
+        run: npm test
 
   test:
     runs-on: ubuntu-latest

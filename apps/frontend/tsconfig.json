@@ -1,0 +1,8 @@
+// The browser code and vite.config.ts (which runs in Node) need different types, so each has its own config.
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
