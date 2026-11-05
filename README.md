@@ -67,3 +67,9 @@ Each app then documents its own setup in its README:
 - **Worker**: [apps/worker/README.md](apps/worker/README.md)
 - **Frontend**: [apps/frontend/README.md](apps/frontend/README.md)
 - **End-to-end tests**: [apps/e2e/README.md](apps/e2e/README.md)
+
+Once each app is set up, start the backend, worker and frontend together from the repo root. Ctrl+C stops all three.
+
+```bash
+npm run dev
+```
